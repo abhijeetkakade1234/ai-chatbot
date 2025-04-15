@@ -122,6 +122,18 @@ function Dashboard() {
             initialQuestions={initialQuestions}
             backgroundColor={backgroundColor}
           />
+          <div>
+  <h3>Embed Your Chatbot</h3>
+  <textarea readOnly value={`<script>
+  (function () {
+    var script = document.createElement('script');
+    script.src = "https://yourdomain.com/chatbot.bundle.js";
+    script.setAttribute('chatbotId', "${userChatbotId}");
+    document.head.appendChild(script);
+  })();
+</script>`} />
+  <button onClick={copyToClipboard}>Copy to Clipboard</button>
+</div>
         </section>
       </main>
     </div>
