@@ -1,0 +1,21 @@
+// src/firebase.jsx
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore'; 
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB-0TL358O140wB7PeuA_NIEBvQaoFHM9A",
+  authDomain: "whatsapp-chatbot-33551.firebaseapp.com",
+  projectId: "whatsapp-chatbot-33551",
+  storageBucket: "whatsapp-chatbot-33551.firebasestorage.app",
+  messagingSenderId: "340832961461",
+  appId: "1:340832961461:web:27141c87178c87cdff8ffc",
+  measurementId: "G-53HFLMV94E"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// ✅ Export auth and db for use in your app
+export const auth = getAuth(app);
+export const db = getFirestore(app);
