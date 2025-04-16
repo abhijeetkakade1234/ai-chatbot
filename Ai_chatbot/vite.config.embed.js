@@ -1,19 +1,26 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
+import path from 'path';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'dist/chatbot.bundle.js',
+          dest: 'public'  // this is the fix ✅
+        }
+      ]
+    })
+  ],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/chatbot-embed/index.jsx'), // 👈 correct path now
+      entry: path.resolve(__dirname, 'src/chatbot-embed/index.jsx'),
       name: 'Chatbot',
-      fileName: () => 'chatbot.bundle.js',
-    },
-    rollupOptions: {
-      output: {
-        format: 'iife', // 👌 for embedding
-      },
-    },
-  },
+      fileName: () => `chatbot.bundle.js`,
+      formats: ['iife'],
+    }
+  }
 });

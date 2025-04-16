@@ -1,15 +1,15 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import ReactDOM from 'react-dom/client';
 import EmbeddedChatbot from './EmbeddedChatbot';
+import './embed.css';
 
-// Create and expose the mount function
-window.mountChatbot = (containerId, config) => {
+window.mountChatbot = (containerId, props) => {
   const container = document.getElementById(containerId);
-  if (!container) {
-    console.error(`Container with id "${containerId}" not found`);
-    return;
-  }
+  if (!container) return;
 
-  const root = createRoot(container);
-  root.render(<EmbeddedChatbot {...config} />);
+  ReactDOM.createRoot(container).render(
+    <React.StrictMode>
+      <EmbeddedChatbot {...props} />
+    </React.StrictMode>
+  );
 };
