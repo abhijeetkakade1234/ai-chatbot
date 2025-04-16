@@ -1,0 +1,33 @@
+/* src/css/EmbedCodeBlock.css */
+.embed-section {
+    margin-top: 2rem;
+    padding: 1rem;
+    background-color: #f8f8f8;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .embed-section h3 {
+    margin-bottom: 0.5rem;
+  }
+  
+  .embed-section textarea {
+    font-family: monospace;
+    font-size: 0.9rem;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    resize: none;
+    padding: 0.5rem;
+    border-radius: 4px;
+  }
+  
+  .embed-section button {
+    margin-top: 0.5rem;
+    background-color: black;
+    color: white;
+    border: none;
+    padding: 0.4rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  

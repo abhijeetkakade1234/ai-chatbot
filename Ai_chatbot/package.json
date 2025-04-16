@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:embed": "vite build --config vite.config.embed.js"
   },
   "dependencies": {
     "ai-chatbot": "file:",
