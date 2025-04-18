@@ -1,17 +1,20 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from './firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import './css/Dashboard.css';
-import { saveUserSettings, fetchUserSettings } from './utils/saveSettings';
+import React, { useState, useEffect, Suspense, lazy } from "react";
+import { useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import "./css/Dashboard.css";
+import { saveUserSettings, fetchUserSettings } from "./utils/saveSettings";
+import FileUpload from "./components/FileUpload";
 
 // Convert regular imports to lazy imports
-const Sidebar = lazy(() => import('./components/Sidebar'));
-const TopHeader = lazy(() => import('./components/TopHeader'));
-const CustomizationPanel = lazy(() => import('./components/CustomizationPanel'));
-const ChatbotPreview = lazy(() => import('./components/ChatbotPreview'));
-const EmbedCodeBlock = lazy(() => import('./components/EmbedCodeBlock'));
+const Sidebar = lazy(() => import("./components/Sidebar"));
+const TopHeader = lazy(() => import("./components/TopHeader"));
+const CustomizationPanel = lazy(() =>
+  import("./components/CustomizationPanel")
+);
+const ChatbotPreview = lazy(() => import("./components/ChatbotPreview"));
+const EmbedCodeBlock = lazy(() => import("./components/EmbedCodeBlock"));
 
 // Add loading fallback
 const LoadingFallback = () => <div>Loading...</div>;
@@ -19,13 +22,15 @@ const LoadingFallback = () => <div>Loading...</div>;
 function Dashboard() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState(null); // 🆕 store UID
-  const [chatbotSize, setChatbotSize] = useState('medium');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [initialGreeting, setInitialGreeting] = useState('Have questions? Ask me anything!');
-  const [backgroundColor, setBackgroundColor] = useState('#000000');
+  const [chatbotSize, setChatbotSize] = useState("medium");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [initialGreeting, setInitialGreeting] = useState(
+    "Have questions? Ask me anything!"
+  );
+  const [backgroundColor, setBackgroundColor] = useState("#000000");
   const [initialQuestions, setInitialQuestions] = useState([
-    'What are some of the main features?',
-    'How do I change my password?',
+    "What are some of the main features?",
+    "How do I change my password?",
   ]);
 
   useEffect(() => {
@@ -34,14 +39,14 @@ function Dashboard() {
         setUserId(user.uid); // store UID as chatbotId
         const savedSettings = await fetchUserSettings(user.uid);
         if (savedSettings) {
-          setChatbotSize(savedSettings.chatbotSize || 'medium');
-          setLogoUrl(savedSettings.logoUrl || '');
-          setInitialGreeting(savedSettings.initialGreeting || '');
-          setBackgroundColor(savedSettings.backgroundColor || '#000000');
+          setChatbotSize(savedSettings.chatbotSize || "medium");
+          setLogoUrl(savedSettings.logoUrl || "");
+          setInitialGreeting(savedSettings.initialGreeting || "");
+          setBackgroundColor(savedSettings.backgroundColor || "#000000");
           setInitialQuestions(savedSettings.initialQuestions || []);
         }
       } else {
-        navigate('/login');
+        navigate("/login");
       }
     });
 
@@ -57,21 +62,21 @@ function Dashboard() {
       initialQuestions,
     };
     await saveUserSettings(userId, settings);
-    alert('Settings saved!');
+    alert("Settings saved!");
   };
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate('/login');
+      navigate("/login");
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
     }
   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(embedCode);
-    alert('Embed code copied!');
+    alert("Embed code copied!");
   };
 
   return (
@@ -92,13 +97,11 @@ function Dashboard() {
               setBackgroundColor={setBackgroundColor}
               initialQuestions={initialQuestions}
               setInitialQuestions={setInitialQuestions}
+              fileUpload={FileUpload}
               onSave={handleSave}
+              chatbotId={userId} 
             />
-            {userId && (
-              <div style={{ marginTop: '20px' }}>
-                <EmbedCodeBlock chatbotId={userId} />
-              </div>
-            )}
+
             <ChatbotPreview
               chatbotSize={chatbotSize}
               logoUrl={logoUrl}
@@ -110,7 +113,6 @@ function Dashboard() {
       </Suspense>
     </div>
   );
-}  
+}
 
 export default Dashboard;
-

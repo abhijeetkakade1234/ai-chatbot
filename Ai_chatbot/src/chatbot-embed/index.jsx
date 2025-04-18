@@ -13,3 +13,5 @@ window.mountChatbot = (containerId, props) => {
     </React.StrictMode>
   );
 };
+
+export default EmbeddedChatbot;

@@ -3,7 +3,8 @@ import LogoInput from './LogoInput';
 import QuestionInput from './QuestionInput';
 import '../css/Dashboard.css';
 import GreetingInput from './GreetingInput';
-
+import EmbedCodeBlock from './EmbedCodeBlock'; // 🆕 import
+import FileUpload from './FileUpload'; // 🆕 import
 
 function ChatbotCustomizationPanel({
   logoUrl,
@@ -16,7 +17,8 @@ function ChatbotCustomizationPanel({
   setInitialGreeting,
   backgroundColor,
   setBackgroundColor,
-  onSave
+  onSave,
+  chatbotId // 🆕 accept chatbotId
 }) {
   return (
     <div className="customization-panel">
@@ -45,10 +47,9 @@ function ChatbotCustomizationPanel({
       <QuestionInput initialQuestions={initialQuestions} setInitialQuestions={setInitialQuestions} />
 
       <GreetingInput 
-  initialGreeting={initialGreeting} 
-  setInitialGreeting={setInitialGreeting} 
-/>
-
+        initialGreeting={initialGreeting} 
+        setInitialGreeting={setInitialGreeting} 
+      />
 
       <div className="settings-group">
         <h3>Background colour</h3>
@@ -64,6 +65,16 @@ function ChatbotCustomizationPanel({
       </div>
 
       <button className="save-btn" onClick={onSave}>Save</button>
+
+      {/* File Upload pdf*/}
+      <FileUpload />
+
+      {/* 🆕 Embed Code */}
+      {chatbotId && (
+        <div style={{ marginTop: '20px' }}>
+          <EmbedCodeBlock chatbotId={chatbotId} />
+        </div>
+      )}
     </div>
   );
 }
