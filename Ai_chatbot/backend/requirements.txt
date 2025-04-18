@@ -1,0 +1,6 @@
+Flask==2.3.2
+langchain==0.0.208
+chromadb==0.3.26
+pypdf==3.15.2
+langchain-text-splitters==0.3.8
+sentence-transformers==2.2.2
