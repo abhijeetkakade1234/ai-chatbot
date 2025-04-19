@@ -1,26 +1,63 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import "../css/components/FileUpload.css"; // 🆕 import CSS for styling
+import "../css/components/FileUpload.css";
 
 const FileUpload = () => {
   const [file, setFile] = useState(null);
   const [userId, setUserId] = useState(null);
   const [message, setMessage] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Fetch the userId from Firebase
-  React.useEffect(() => {
+  useEffect(() => {
     const auth = getAuth();
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        setUserId(user.uid); // Set the userId from Firebase
+        setUserId(user.uid);
       } else {
-        setUserId(null); // User is not logged in
+        setUserId(null);
       }
     });
   }, []);
 
+  const uploadFile = async (file, userId) => {
+    const apiUrl = "http://localhost:5000/push_user_info_database";
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("userId", userId);
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      // Validate file type if needed
+      if (selectedFile.type === 'application/pdf' || 
+          selectedFile.type === 'text/plain' ||
+          selectedFile.type === 'application/msword' ||
+          selectedFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        setFile(selectedFile);
+        setMessage("");
+      } else {
+        setFile(null);
+        setMessage("Please select a valid document file (PDF, TXT, DOC, DOCX)");
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -32,39 +69,54 @@ const FileUpload = () => {
     }
 
     if (!userId) {
-      setMessage("User is not authenticated.");
+      setMessage("Please login to upload files.");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("userId", userId);
+    setIsUploading(true);
+    setMessage("Uploading file...");
 
     try {
-      const response = await fetch("http://localhost:5000/push_user_info_database", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setMessage("File uploaded successfully: " + JSON.stringify(data));
-      } else {
-        setMessage("Error: " + data.error);
-      }
+      const result = await uploadFile(file, userId);
+      setMessage(`File uploaded successfully! ${result.message || ''}`);
+      setFile(null);
+      // Reset file input
+      e.target.reset();
     } catch (error) {
-      setMessage("An error occurred: " + error.message);
+      setMessage(`Upload failed: ${error.message}`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
   return (
     <div className="file-upload-container">
-      <h1 className="file-upload-title">Upload File</h1>
+      <h1 className="file-upload-title">Upload Document</h1>
       <form onSubmit={handleSubmit}>
-        <input className="file-upload-input" type="file" onChange={handleFileChange} />
-        <button className="file-upload-button" type="submit">Upload</button>
-        <p className="file-upload-instruction">Please select a file to upload.</p>
-        {message && <p className="file-upload-message">{message}</p>}
+        <div className="file-upload-input-group">
+          <input 
+            type="file" 
+            onChange={handleFileChange}
+            accept=".pdf,.txt,.doc,.docx"
+            disabled={isUploading}
+            className="file-upload-input"
+          />
+          <button 
+            type="submit" 
+            disabled={!file || isUploading}
+            className={`file-upload-button ${isUploading ? 'uploading' : ''}`}
+          >
+            {isUploading ? 'Uploading...' : 'Upload'}
+          </button>
+        </div>
+        <p className="file-upload-instruction">
+          Supported formats: PDF, TXT, DOC, DOCX
+        </p>
+        {message && (
+          <p className={`file-upload-message ${message.includes('failed') ? 'error' : 'success'}`}>
+            {message}
+          </p>
+        )}
       </form>
     </div>
   );

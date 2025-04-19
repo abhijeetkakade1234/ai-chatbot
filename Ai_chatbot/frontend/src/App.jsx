@@ -5,6 +5,8 @@ import { auth } from './firebase';
 import AuthForm from './AuthForm';
 import Dashboard from './Dashboard';
 import Settings from './Settings';
+import KnowledgeBase from './KnowledgeBase';
+
 
 function App() {
   const [user, setUser] = useState(null);
@@ -26,22 +28,12 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route 
-          path="/login" 
-          element={user ? <Navigate to="/dashboard" /> : <AuthForm />} 
-        />
-        <Route 
-          path="/dashboard" 
-          element={user ? <Dashboard /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/settings" 
-          element={user ? <Settings /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="*" 
-          element={<Navigate to={user ? "/dashboard" : "/login"} />} 
-        />
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/knowledgebase" element={<KnowledgeBase />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <AuthForm />} />
+        <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
       </Routes>
     </Router>
   );

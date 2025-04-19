@@ -114,3 +114,55 @@
 .chatbot-footer a:hover {
   color: #3367d6;
 }
+
+.chatbot-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.message {
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.message.user {
+  background-color: #007bff;
+  color: white;
+  align-self: flex-end;
+}
+
+.message.bot {
+  background-color: #f0f0f0;
+  color: #333;
+  align-self: flex-start;
+}
+
+.message.error {
+  background-color: #ffebee;
+  color: #c62828;
+  align-self: center;
+}
+
+.message.loading {
+  background-color: #f0f0f0;
+  color: #666;
+  align-self: center;
+  animation: pulse 1.5s infinite;
+}
+
+.sources {
+  font-size: 0.8em;
+  margin-top: 4px;
+  color: #666;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}

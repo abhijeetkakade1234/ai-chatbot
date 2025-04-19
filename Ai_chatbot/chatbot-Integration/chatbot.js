@@ -4,13 +4,13 @@ import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.
 
 // 1. Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyB-0TL358O140wB7PeuA_NIEBvQaoFHM9A",
-  authDomain: "whatsapp-chatbot-33551.firebaseapp.com",
-  projectId: "whatsapp-chatbot-33551",
-  storageBucket: "whatsapp-chatbot-33551.firebasestorage.app",
-  messagingSenderId: "340832961461",
-  appId: "1:340832961461:web:27141c87178c87cdff8ffc",
-  measurementId: "G-53HFLMV94E"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_APP_ID,
+  measurementId: process.env.REACT_APP_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
@@ -82,6 +82,7 @@ function injectStyles() {
       flex: 1;
       display: flex;
       flex-direction: column;
+      overflow: hidden; /* Prevent double scrollbars */
     }
 
     .chatbot-message {
@@ -94,15 +95,7 @@ function injectStyles() {
       flex-direction: column;
       gap: 6px;
       margin-bottom: 12px;
-    }
-
-    .chatbot-question {
-      background: white;
-      color: black;
-      padding: 6px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
+      transition: all 0.3s ease;
     }
 
     .chatbot-hint {
@@ -165,18 +158,61 @@ function injectStyles() {
       display: none !important;
     }
     .chatbot-typing {
-    font-style: italic;
-    font-size: 13px;
-    color: #ccc;
-    margin-bottom: 10px;
-    animation: blink 1.2s infinite;
-  }
+      font-style: italic;
+      font-size: 13px;
+      color: #ccc;
+      margin-bottom: 10px;
+      animation: blink 1.2s infinite;
+    }
 
-  @keyframes blink {
-    0% { opacity: 0.2; }
-    50% { opacity: 1; }
-    100% { opacity: 0.2; }
-  }
+    @keyframes blink {
+      0% { opacity: 0.2; }
+      50% { opacity: 1; }
+      100% { opacity: 0.2; }
+    }
+
+    .user-message {
+      background-color: #007bff;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-left: auto;
+      max-width: 80%;
+    }
+
+    .bot-message {
+      background-color: #f0f0f0;
+      color: #333;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-right: auto;
+      max-width: 80%;
+    }
+
+    .error-message {
+      background-color: #ffebee;
+      color: #c62828;
+      padding: 8px 12px;
+      border-radius: 8px;
+      text-align: center;
+      margin: 8px auto;
+    }
+
+    .sources {
+      font-size: 0.8em;
+      margin-top: 4px;
+      color: #666;
+    }
+
+    .chatbot-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -193,16 +229,17 @@ function renderChatbot(container, data) {
         <div class="chatbot-icon">
           <img src="${data.logoUrl || '🤖'}" alt="Bot" />
         </div>
-        <div class="chatbot-title">${data.title || 'abc'}</div>
+        <div class="chatbot-title">${data.botName || 'abc'}</div>
         <button class="chatbot-close-btn">×</button>
       </div>
 
       <div class="chatbot-body">
-        <div class="chatbot-message">${data.initialGreeting || 'How can I help?'}</div>
+        <div class="chatbot-messages">
+          <div class="chatbot-message bot-message">${data.initialGreeting || 'How can I help?'}</div>
+        </div>
         <div class="chatbot-questions">
           ${data.initialQuestions.map(q => `<div class="chatbot-question">${q}</div>`).join('')}
         </div>
-        <div class="chatbot-hint">Click one, or type your own</div>
         <div class="chatbot-input">
           <input type="text" placeholder="Type here..." />
           <button class="send-btn">➤</button>
@@ -236,29 +273,25 @@ function renderChatbot(container, data) {
     toggleBtn.classList.add("hidden");
   });
 
-  // 💬 Future Chat Logic (Enable when ready)
-  /*
-  const inputEl = container.querySelector(".chatbot-input input");
-  const sendBtn = container.querySelector(".send-btn");
+  // Add event listeners for chat
+  const inputEl = wrapper.querySelector(".chatbot-input input");
+  const sendBtn = wrapper.querySelector(".send-btn");
 
-  const sendMessage = async () => {
-    const text = inputEl.value.trim();
-    if (!text) return;
-
-    const res = await fetch("https://your-api-endpoint.com/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text })
-    });
-    const data = await res.json();
-    console.log("Bot reply:", data.reply);
-  };
-
-  sendBtn.addEventListener("click", sendMessage);
+  sendBtn.addEventListener("click", () => sendMessage(wrapper, data.chatbotId));
   inputEl.addEventListener("keypress", e => {
-    if (e.key === "Enter") sendMessage();
+    if (e.key === "Enter") sendMessage(wrapper, data.chatbotId);
   });
-  */
+
+  // Add click handlers for initial questions
+  const questions = wrapper.querySelectorAll(".chatbot-question");
+  questions.forEach(q => {
+    q.addEventListener("click", () => {
+      const questionsContainer = wrapper.querySelector(".chatbot-questions");
+      questionsContainer.style.display = 'none';
+      inputEl.value = q.innerText;
+      sendMessage(wrapper, data.chatbotId);
+    });
+  });
 }
 
 // 4. Mount Function
@@ -279,6 +312,30 @@ window.mountChatbot = async (containerId, { chatbotId }) => {
   renderChatbot(container, snap.data());
 };
 
+async function askQuestion(query, chatbotId) {
+  try {
+    const response = await fetch("http://localhost:5000/question_asked", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: query,
+        userId: chatbotId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error:", error);
+    return null;
+  }
+}
+
 function showTypingIndicator(container, show = true) {
   const typingEl = container.querySelector(".chatbot-typing");
   if (show) {
@@ -294,31 +351,55 @@ function showTypingIndicator(container, show = true) {
   }
 }
 
-const body = container.querySelector(".chatbot-body");
-const hintEl = container.querySelector(".chatbot-hint");
-
-const sendMessage = async () => {
+const sendMessage = async (container, chatbotId) => {
+  const inputEl = container.querySelector(".chatbot-input input");
+  const messagesContainer = container.querySelector(".chatbot-messages");
+  const questionsContainer = container.querySelector(".chatbot-questions");
+  
   const text = inputEl.value.trim();
   if (!text) return;
 
+  // Hide initial questions after first interaction
+  questionsContainer.style.display = 'none';
+
   // Show user message
-  const msgDiv = document.createElement("div");
-  msgDiv.className = "chatbot-message";
-  msgDiv.innerText = text;
-  body.insertBefore(msgDiv, hintEl);
+  const userMsg = document.createElement("div");
+  userMsg.className = "chatbot-message user-message";
+  userMsg.innerText = text;
+  messagesContainer.appendChild(userMsg);
 
+  // Scroll to bottom
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+  // Clear input
   inputEl.value = "";
-
-  // ✨ Show Typing
+  
+  // Show typing indicator
   showTypingIndicator(container, true);
 
-  // Simulate delay (e.g., API call)
-  setTimeout(() => {
-    showTypingIndicator(container, false);
-    
+  // Get response from Flask backend
+  const response = await askQuestion(text, chatbotId);
+  
+  // Hide typing indicator
+  showTypingIndicator(container, false);
+
+  if (response) {
+    // Show bot message
     const botMsg = document.createElement("div");
-    botMsg.className = "chatbot-message";
-    botMsg.innerText = "This is a fake reply! 👋"; // replace with real API reply later
-    body.insertBefore(botMsg, hintEl);
-  }, 2000);
+    botMsg.className = "chatbot-message bot-message";
+    botMsg.innerHTML = `
+      ${response.response}
+      ${response.sources ? `<div class="sources">Sources: ${response.sources.join(', ')}</div>` : ''}
+    `;
+    messagesContainer.appendChild(botMsg);
+  } else {
+    // Show error message
+    const errorMsg = document.createElement("div");
+    errorMsg.className = "chatbot-message error-message";
+    errorMsg.innerText = "Sorry, I encountered an error. Please try again.";
+    messagesContainer.appendChild(errorMsg);
+  }
+
+  // Scroll to bottom after new message
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
 };

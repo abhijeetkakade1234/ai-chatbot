@@ -5,7 +5,7 @@ import { db } from '../firebase'; // no need for `auth` here
 export const saveUserSettings = async (userId, settings) => {
   if (!userId) return;
   try {
-    await setDoc(doc(db, 'chatbotSettings', userId), settings);
+    await setDoc(doc(db, 'chatbotSettings', userId), settings, { merge: true }); // 🛠 merge!
     console.log('Settings saved!');
   } catch (error) {
     console.error('Error saving settings:', error);

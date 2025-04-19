@@ -1,0 +1,141 @@
+.settings-container {
+  display: flex;
+  min-height: 100vh;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s;
+}
+
+.settings-container:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.settings-container h2 {
+  margin-top: 0;
+  font-size: 24px;
+  color: #333;
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: bold;
+}
+
+.settings-content {
+  flex: 1;
+  padding: 20px;
+  margin-left: 250px; /* Match sidebar width */
+  background-color: #f5f5f5;
+}
+
+.tabs {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.tabs button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.tabs button:hover {
+  background: #f5f5f5;
+}
+
+.tabs button.active {
+  background: #007bff;
+  color: white;
+}
+
+.settings-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  transition: box-shadow 0.3s;
+}
+
+.settings-section:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.option-group, .input-group {
+  margin-bottom: 20px;
+}
+
+.option-group h4, .input-group label {
+  margin-bottom: 8px;
+  display: block;
+}
+
+select, input, textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  transition: border-color 0.2s;
+}
+
+select:hover, input:hover, textarea:hover {
+  border-color: #007bff;
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.instruction-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.instruction-item button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.instruction-item button:hover {
+  color: #007bff;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.save-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.3s;
+}
+
+.save-button:hover {
+  background-color: #45a049;
+}
+
+.save-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+

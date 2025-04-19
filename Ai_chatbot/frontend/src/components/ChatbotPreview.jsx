@@ -1,6 +1,7 @@
 // src/components/ChatbotPreview.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import '../css/components/ChatbotPreview.css'; // use the correct CSS!
+import Settings from '../Settings';
 
 function ChatbotPreview({
   chatbotSize,
@@ -8,10 +9,59 @@ function ChatbotPreview({
   initialQuestions = [],
   backgroundColor,
   onQuestionClick,
-  mode = 'dashboard'
+  mode = 'dashboard',
+  chatbotId
 }) {
-  // Add visibility state
   const [isVisible, setIsVisible] = React.useState(true);
+  const [inputText, setInputText] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const askQuestion = async (query) => {
+    const apiUrl = "http://localhost:5000/question_asked";
+
+    try {
+      setIsLoading(true);
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: query,
+          userId: chatbotId, // Using chatbotId as userId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      
+      // Add both question and response to messages
+      setMessages(prev => [...prev, 
+        { type: 'user', text: query },
+        { type: 'bot', text: data.response, sources: data.sources }
+      ]);
+
+    } catch (error) {
+      console.error("Error:", error);
+      setMessages(prev => [...prev, 
+        { type: 'error', text: 'Sorry, I encountered an error. Please try again.' }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputSubmit = async (e) => {
+    e.preventDefault();
+    if (!inputText.trim()) return;
+
+    await askQuestion(inputText);
+    setInputText('');
+  };
 
   // Early return if not visible
   if (!isVisible) return null;
@@ -29,33 +79,54 @@ function ChatbotPreview({
         </div>
       )}
 
-      <div className={`chatbot-preview ${chatbotSize || 'medium'}`} style={{ backgroundColor: backgroundColor || '#000000' }}>
+      <div className={`chatbot-preview ${chatbotSize || 'medium'}`} 
+           style={{ backgroundColor: backgroundColor || '#000000' }}>
         <div className="chatbot-header">
           <div className="chatbot-icon">
             {logoUrl ? <img src={logoUrl} alt="Bot" /> : <span>🤖</span>}
           </div>
-          <div className="chatbot-title">abc</div>
+          <div className="chatbot-title">{Settings.botname || "Your Bot"}</div>
         </div>
 
         <div className="chatbot-body">
-          <div className="chatbot-message">Select relevant question to start</div>
+          <div className="chatbot-messages">
+            {messages.map((message, index) => (
+              <div key={index} className={`message ${message.type}`}>
+                {message.text}
+                {message.sources && (
+                  <div className="sources">
+                    Sources: {message.sources.join(', ')}
+                  </div>
+                )}
+              </div>
+            ))}
+            {isLoading && <div className="message loading">Thinking...</div>}
+          </div>
+
           <div className="chatbot-questions">
             {initialQuestions.map((question, index) => (
               <div
                 key={index}
                 className="chatbot-question"
-                onClick={() => onQuestionClick?.(question)}
+                onClick={() => askQuestion(question)}
               >
-                {question || "What are some features?"}
+                {question}
               </div>
             ))}
           </div>
-          <div className="chatbot-hint">Click one, or type your own</div>
-          <div className="chatbot-input">
-            <input type="text" placeholder="Type here..." />
-            <button className="send-btn">➤</button>
-          </div>
-          <div className="chatbot-footer">Powered by </div>
+
+          <form onSubmit={handleInputSubmit} className="chatbot-input">
+            <input 
+              type="text" 
+              placeholder="Type here..." 
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              disabled={isLoading}
+            />
+            <button type="submit" className="send-btn" disabled={isLoading}>
+              ➤
+            </button>
+          </form>
         </div>
       </div>
 
