@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
+import { signOut, getAuth } from "firebase/auth";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import "./css/Dashboard.css";
@@ -20,8 +20,17 @@ const EmbedCodeBlock = lazy(() => import("./components/EmbedCodeBlock"));
 const LoadingFallback = () => <div>Loading...</div>;
 
 function Dashboard() {
+  const auth = getAuth();
+  const userId = auth.currentUser?.uid;
+
+  React.useEffect(() => {
+    console.log('Current auth state:', {
+      isAuthenticated: !!auth.currentUser,
+      userId: auth.currentUser?.uid
+    });
+  }, [auth.currentUser]);
+
   const navigate = useNavigate();
-  const [userId, setUserId] = useState(null); // 🆕 store UID
   const [chatbotSize, setChatbotSize] = useState("medium");
   const [logoUrl, setLogoUrl] = useState("");
   const [initialGreeting, setInitialGreeting] = useState(
@@ -32,11 +41,11 @@ function Dashboard() {
     "What are some of the main features?",
     "How do I change my password?",
   ]);
+  const [updateKey, setUpdateKey] = useState(0); // Add this line at the top with other states
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        setUserId(user.uid); // store UID as chatbotId
         const savedSettings = await fetchUserSettings(user.uid);
         if (savedSettings) {
           setChatbotSize(savedSettings.chatbotSize || "medium");
@@ -62,6 +71,7 @@ function Dashboard() {
       initialQuestions,
     };
     await saveUserSettings(userId, settings);
+    setUpdateKey(prev => prev + 1); // Force re-render of ChatbotPreview
     alert("Settings saved!");
   };
 
@@ -79,8 +89,12 @@ function Dashboard() {
     alert("Embed code copied!");
   };
 
+  if (!userId) {
+    return <div>Please log in to view the dashboard</div>;
+  }
+
   return (
-    <div className="dashboard-layout">
+    <div className="dashboard-container">
       <Suspense fallback={<LoadingFallback />}>
         <Sidebar onLogout={handleLogout} />
         <main className="main-content">
@@ -103,10 +117,14 @@ function Dashboard() {
             />
 
             <ChatbotPreview
-              chatbotSize={chatbotSize}
-              logoUrl={logoUrl}
+              key={updateKey} // Add this line
+              chatbotId={userId}
               initialQuestions={initialQuestions}
               backgroundColor={backgroundColor}
+              chatbotSize={chatbotSize}
+              logoUrl={logoUrl}
+              initialGreeting={initialGreeting}
+              forceUpdate={updateKey} // Add this line
             />
           </section>
         </main>

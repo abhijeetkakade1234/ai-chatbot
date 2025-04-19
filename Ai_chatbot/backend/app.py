@@ -1,7 +1,7 @@
 from flask import Flask , request , jsonify
+from flask_cors import CORS
 
 import os
-import shutil
 import shutil
 from typing import List
 from langchain_community.embeddings.ollama import OllamaEmbeddings
@@ -17,8 +17,17 @@ from uuid import uuid4  # For generating unique document IDs
 from io import BytesIO  # For handling file streams
 import tempfile
 from langchain_community.document_loaders import PyPDFLoader
+import chromadb
 
-app=Flask(__name__)
+app = Flask(__name__)
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://127.0.0.1:5500", "http://localhost:5500","http://localhost:5173"],  # Your React dev server 
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Accept"],
+        "supports_credentials": True
+    }
+})
 
 CHROMA_PATH = "chroma"
 DATA_PATH = "data"
@@ -112,18 +121,21 @@ def process_file_with_ml(file_stream, user_id):
         # Clean up the temporary file
         os.remove(temp_pdf_path)
 
-@app.route('/question_asked',methods=['POST'])
+@app.route('/question_asked', methods=['POST'])
 def question_asked():
-    data=request.get_json()
-    query_text = data.get('query')
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+        
+    query = data.get('query')
     user_id = data.get('userId')
- 
-    if not query_text:
+
+    if not query:
         return jsonify({'error': 'No query provided'}), 400
 
     if not user_id:
         return jsonify({'error': 'No userId provided'}), 400
-
 
     db = Chroma(
         persist_directory=CHROMA_PATH,
@@ -131,7 +143,7 @@ def question_asked():
     )
 
     validation_results = db.similarity_search_with_score(
-        query_text="*",  # Dummy query to fetch all chunks
+        query="*",  # Dummy query to fetch all chunks
         k=1,  # Fetch only one result for validation
         filter={"userId": user_id}
     )
@@ -141,7 +153,7 @@ def question_asked():
 
     # Perform similarity search for the query
     results = db.similarity_search_with_score(
-        query_text,
+        query=query,
         k=5,
         filter={"userId": user_id}
     )
@@ -152,7 +164,7 @@ def question_asked():
     # Prepare the context from the top results
     context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-    prompt = prompt_template.format(context=context_text, question=query_text)
+    prompt = prompt_template.format(context=context_text, question=query)
 
     # Generate an answer using the LLM
     llm = get_llm()
@@ -163,7 +175,6 @@ def question_asked():
 
     return jsonify({
         'response': response_text,
-        'sources': sources
     }), 200
 
 

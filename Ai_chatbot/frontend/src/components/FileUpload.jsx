@@ -29,6 +29,11 @@ const FileUpload = () => {
       const response = await fetch(apiUrl, {
         method: "POST",
         body: formData,
+        mode: 'cors',  // Add this
+        credentials: 'same-origin',  // Add this
+        headers: {
+          'Accept': 'application/json',  // Add these headers
+        },
       });
 
       if (!response.ok) {

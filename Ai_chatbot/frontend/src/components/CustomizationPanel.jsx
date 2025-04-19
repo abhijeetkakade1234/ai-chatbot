@@ -3,8 +3,8 @@ import LogoInput from './LogoInput';
 import QuestionInput from './QuestionInput';
 import '../css/Dashboard.css';
 import GreetingInput from './GreetingInput';
-import EmbedCodeBlock from './EmbedCodeBlock'; // 🆕 import
-import FileUpload from './FileUpload'; // 🆕 import
+import EmbedCodeBlock from './EmbedCodeBlock'; 
+import FileUpload from './FileUpload'; 
 
 function ChatbotCustomizationPanel({
   logoUrl,
@@ -28,20 +28,15 @@ function ChatbotCustomizationPanel({
 
       <div className="settings-group">
         <h3>Chatbot size</h3>
-        <div className="radio-group">
-          {['small', 'medium', 'large'].map(size => (
-            <label key={size} className={chatbotSize === size ? 'active' : ''}>
-              <input
-                type="radio"
-                name="size"
-                value={size}
-                checked={chatbotSize === size}
-                onChange={() => setChatbotSize(size)}
-              />
-              <span className="radio-label">{size.charAt(0).toUpperCase() + size.slice(1)}</span>
-            </label>
-          ))}
-        </div>
+        <select 
+          value={chatbotSize} 
+          onChange={(e) => setChatbotSize(e.target.value)}
+          className="size-selector"
+        >
+          <option value="small">Small</option>
+          <option value="medium">Medium</option>
+          <option value="large">Large</option>
+        </select>
       </div>
 
       <QuestionInput initialQuestions={initialQuestions} setInitialQuestions={setInitialQuestions} />

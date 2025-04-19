@@ -273,67 +273,175 @@ function renderChatbot(container, data) {
     toggleBtn.classList.add("hidden");
   });
 
-  // Add event listeners for chat
+  // Update event listeners for chat
   const inputEl = wrapper.querySelector(".chatbot-input input");
-  const sendBtn = wrapper.querySelector(".send-btn");
+  const sendBtn = wrapper.querySelector(".chatbot-input .send-btn");
 
-  sendBtn.addEventListener("click", () => sendMessage(wrapper, data.chatbotId));
-  inputEl.addEventListener("keypress", e => {
-    if (e.key === "Enter") sendMessage(wrapper, data.chatbotId);
+  if (!data.chatbotId) {
+    console.error("No chatbotId provided in chatbot data");
+    return;
+  }
+
+  const handleSend = () => {
+    const text = inputEl.value.trim();
+    if (text) {
+      sendMessage(wrapper, data.chatbotId);
+    }
+  };
+
+  // Add click event listener to send button
+  sendBtn.addEventListener("click", handleSend);
+  
+  // Add enter key event listener to input
+  inputEl.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSend();
+    }
   });
 
-  // Add click handlers for initial questions
+  // Update question click handlers
   const questions = wrapper.querySelectorAll(".chatbot-question");
   questions.forEach(q => {
     q.addEventListener("click", () => {
-      const questionsContainer = wrapper.querySelector(".chatbot-questions");
-      questionsContainer.style.display = 'none';
       inputEl.value = q.innerText;
-      sendMessage(wrapper, data.chatbotId);
+      handleSend();
+      q.parentElement.style.display = 'none';
     });
   });
 }
 
 // 4. Mount Function
 window.mountChatbot = async (containerId, { chatbotId }) => {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  injectStyles();
-
-  const ref = doc(db, "chatbotSettings", chatbotId);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    container.innerHTML = "<p>Chatbot not found.</p>";
+  if (!chatbotId) {
+    console.error("chatbotId is required");
     return;
   }
 
-  renderChatbot(container, snap.data());
+  const container = document.getElementById(containerId);
+  if (!container) {
+    console.error(`Container with id ${containerId} not found`);
+    return;
+  }
+
+  injectStyles();
+
+  try {
+    const ref = doc(db, "chatbotSettings", chatbotId);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      container.innerHTML = "<p>Chatbot not found.</p>";
+      return;
+    }
+
+    // Pass chatbotId along with the Firestore data
+    const chatbotData = {
+      ...snap.data(),
+      chatbotId  // Add chatbotId to the data object
+    };
+
+    renderChatbot(container, chatbotData);
+  } catch (error) {
+    console.error("Error mounting chatbot:", error);
+    container.innerHTML = "<p>Error loading chatbot.</p>";
+  }
 };
 
 async function askQuestion(query, chatbotId) {
+  if (!query || !chatbotId) {
+    console.error("Missing parameters:", { query, chatbotId });
+    throw new Error("Missing query or userId");
+  }
+
   try {
     const response = await fetch("http://localhost:5000/question_asked", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Accept": "application/json"
       },
+      mode: 'cors',
+      credentials: 'include',
       body: JSON.stringify({
-        query: query,
-        userId: chatbotId,
-      }),
+        query: query.trim(),
+        userId: chatbotId  // Make sure this matches your backend expectation
+      })
     });
 
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Network response was not ok');
     }
 
-    return await response.json();
+    const data = await response.json();
+    if (!data.response) {
+      throw new Error('Invalid response format');
+    }
+
+    return data;
   } catch (error) {
-    console.error("Error:", error);
-    return null;
+    console.error("Error in askQuestion:", error);
+    throw error;
   }
+}
+
+const sendMessage = async (container, chatbotId) => {
+  if (!chatbotId) {
+    console.error("No chatbotId provided to sendMessage");
+    return;
+  }
+
+  const inputEl = container.querySelector(".chatbot-input input");
+  const messagesContainer = container.querySelector(".chatbot-messages");
+  const text = inputEl.value.trim();
+  
+  if (!text) return;
+
+  try {
+    // Add user message immediately
+    addMessage(messagesContainer, {
+      type: 'user',
+      text: text
+    });
+
+    // Clear input and show loading
+    inputEl.value = "";
+    showTypingIndicator(container, true);
+
+    // Get response from API
+    const data = await askQuestion(text, chatbotId);
+
+    // Add bot response
+    addMessage(messagesContainer, {
+      type: 'bot',
+      text: data.response,
+      sources: data.sources
+    });
+
+  } catch (error) {
+    console.error("Error in sendMessage:", error);
+    addMessage(messagesContainer, {
+      type: 'error',
+      text: error.message || 'Sorry, I encountered an error. Please try again.'
+    });
+  } finally {
+    showTypingIndicator(container, false);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+};
+
+function addMessage(container, message) {
+  const messageEl = document.createElement("div");
+  messageEl.className = `chatbot-message ${message.type}-message`;
+  
+  let html = message.text;
+  if (message.sources) {
+    html += `<div class="sources">Sources: ${message.sources.join(', ')}</div>`;
+  }
+  
+  messageEl.innerHTML = html;
+  container.appendChild(messageEl);
 }
 
 function showTypingIndicator(container, show = true) {
@@ -350,56 +458,3 @@ function showTypingIndicator(container, show = true) {
     typingEl?.remove();
   }
 }
-
-const sendMessage = async (container, chatbotId) => {
-  const inputEl = container.querySelector(".chatbot-input input");
-  const messagesContainer = container.querySelector(".chatbot-messages");
-  const questionsContainer = container.querySelector(".chatbot-questions");
-  
-  const text = inputEl.value.trim();
-  if (!text) return;
-
-  // Hide initial questions after first interaction
-  questionsContainer.style.display = 'none';
-
-  // Show user message
-  const userMsg = document.createElement("div");
-  userMsg.className = "chatbot-message user-message";
-  userMsg.innerText = text;
-  messagesContainer.appendChild(userMsg);
-
-  // Scroll to bottom
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-  // Clear input
-  inputEl.value = "";
-  
-  // Show typing indicator
-  showTypingIndicator(container, true);
-
-  // Get response from Flask backend
-  const response = await askQuestion(text, chatbotId);
-  
-  // Hide typing indicator
-  showTypingIndicator(container, false);
-
-  if (response) {
-    // Show bot message
-    const botMsg = document.createElement("div");
-    botMsg.className = "chatbot-message bot-message";
-    botMsg.innerHTML = `
-      ${response.response}
-      ${response.sources ? `<div class="sources">Sources: ${response.sources.join(', ')}</div>` : ''}
-    `;
-    messagesContainer.appendChild(botMsg);
-  } else {
-    // Show error message
-    const errorMsg = document.createElement("div");
-    errorMsg.className = "chatbot-message error-message";
-    errorMsg.innerText = "Sorry, I encountered an error. Please try again.";
-    messagesContainer.appendChild(errorMsg);
-  }
-
-  // Scroll to bottom after new message
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-};
