@@ -89,7 +89,7 @@ def process_file_with_ml(file_stream, user_id):
 
         # Split the documents into chunks
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=800,
+            chunk_size=1024,
             chunk_overlap=80,
             length_function=len,
             is_separator_regex=False

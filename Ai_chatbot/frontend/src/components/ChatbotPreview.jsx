@@ -120,16 +120,38 @@ function ChatbotPreview({ chatbotId, chatbotSize, backgroundColor, logoUrl, init
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Network response was not ok');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      if (!data.response) {
-        throw new Error('Invalid response format');
+      console.log('Response data:', data); // Debug log
+
+      // Handle different response formats
+      if (typeof data === 'object') {
+        // If data is directly the response string
+        if (typeof data === 'string') {
+          return { response: data };
+        }
+        // If data is an object with response property
+        if (data.response) {
+          return { response: data.response };
+        }
+        // If data is an object with message property
+        if (data.message) {
+          return { response: data.message };
+        }
+        // If data is an object with answer property
+        if (data.answer) {
+          return { response: data.answer };
+        }
+        // If none of the above, stringify the object
+        return { 
+          response: JSON.stringify(data, null, 2)
+        };
       }
 
-      return data;
+      throw new Error('Invalid response format');
 
     } catch (error) {
       console.error("Error in askQuestion:", error);
@@ -137,8 +159,7 @@ function ChatbotPreview({ chatbotId, chatbotSize, backgroundColor, logoUrl, init
     } finally {
       setIsLoading(false);
     }
-  };
-
+};
   const handleInputSubmit = async (e) => {
     e.preventDefault();
     const query = inputText.trim();
@@ -155,10 +176,15 @@ function ChatbotPreview({ chatbotId, chatbotSize, backgroundColor, logoUrl, init
       setIsLoading(true);
       const data = await askQuestion(query);
       
+      // Format the response text
+      const responseText = typeof data.response === 'object' 
+        ? JSON.stringify(data.response, null, 2)
+        : String(data.response);
+
       // Add bot response to messages
       setMessages(prev => [...prev, {
         type: 'bot',
-        text: data.response,
+        text: responseText,
         sources: data.sources
       }]);
       

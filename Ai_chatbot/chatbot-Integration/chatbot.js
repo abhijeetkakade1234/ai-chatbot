@@ -4,13 +4,13 @@ import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.
 
 // 1. Firebase config
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_APP_ID,
-  measurementId: process.env.REACT_APP_MEASUREMENT_ID
+  apiKey: "AIzaSyB-0TL358O140wB7PeuA_NIEBvQaoFHM9A",
+  authDomain: "whatsapp-chatbot-33551.firebaseapp.com",
+  projectId: "whatsapp-chatbot-33551",
+  storageBucket: "whatsapp-chatbot-33551.firebasestorage.app",
+  messagingSenderId: "340832961461",
+  appId: "1:340832961461:web:27141c87178c87cdff8ffc",
+  measurementId: "G-53HFLMV94E"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -362,28 +362,70 @@ async function askQuestion(query, chatbotId) {
         "Accept": "application/json"
       },
       mode: 'cors',
-      credentials: 'include',
+      credentials: 'include', 
       body: JSON.stringify({
         query: query.trim(),
-        userId: chatbotId  // Make sure this matches your backend expectation
+        userId: chatbotId
       })
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Network response was not ok');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    if (!data.response) {
-      throw new Error('Invalid response format');
+    console.log('API Response:', data); // Debug log
+
+    // Handle different response formats
+    if (typeof data === 'object') {
+      // If data is directly the response string
+      if (typeof data === 'string') {
+        return { response: data };
+      }
+      // If data is an object with response property
+      if (data.response) {
+        return { response: data.response };
+      }
+      // If data is an object with message property
+      if (data.message) {
+        return { response: data.message };
+      }
+      // If data is an object with answer property
+      if (data.answer) {
+        return { response: data.answer };
+      }
+      // If none of the above, stringify the object
+      return { 
+        response: JSON.stringify(data, null, 2)
+      };
     }
 
-    return data;
+    throw new Error('Invalid response format');
+
   } catch (error) {
     console.error("Error in askQuestion:", error);
     throw error;
   }
+}
+
+function addMessage(container, message) {
+  const messageEl = document.createElement("div");
+  messageEl.className = `chatbot-message ${message.type}-message`;
+  
+  // Format the message text if it's an object
+  let text = message.text;
+  if (typeof text === 'object') {
+    text = JSON.stringify(text, null, 2);
+  }
+  
+  let html = text;
+  if (message.sources) {
+    html += `<div class="sources">Sources: ${message.sources.join(', ')}</div>`;
+  }
+  
+  messageEl.innerHTML = html;
+  container.appendChild(messageEl);
 }
 
 const sendMessage = async (container, chatbotId) => {
@@ -412,10 +454,15 @@ const sendMessage = async (container, chatbotId) => {
     // Get response from API
     const data = await askQuestion(text, chatbotId);
 
+    // Format the response text
+    const responseText = typeof data.response === 'object' 
+      ? JSON.stringify(data.response, null, 2)
+      : String(data.response);
+
     // Add bot response
     addMessage(messagesContainer, {
       type: 'bot',
-      text: data.response,
+      text: responseText,
       sources: data.sources
     });
 
@@ -430,19 +477,6 @@ const sendMessage = async (container, chatbotId) => {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 };
-
-function addMessage(container, message) {
-  const messageEl = document.createElement("div");
-  messageEl.className = `chatbot-message ${message.type}-message`;
-  
-  let html = message.text;
-  if (message.sources) {
-    html += `<div class="sources">Sources: ${message.sources.join(', ')}</div>`;
-  }
-  
-  messageEl.innerHTML = html;
-  container.appendChild(messageEl);
-}
 
 function showTypingIndicator(container, show = true) {
   const typingEl = container.querySelector(".chatbot-typing");
