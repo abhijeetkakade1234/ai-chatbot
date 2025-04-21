@@ -18,6 +18,12 @@ from io import BytesIO  # For handling file streams
 import tempfile
 from langchain_community.document_loaders import PyPDFLoader
 import chromadb
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from langchain_community.llms import HuggingFacePipeline
+import torch
+import whatsapp
+from langchain_community.llms import Ollama
+
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -32,16 +38,35 @@ CORS(app, resources={
 CHROMA_PATH = "chroma"
 DATA_PATH = "data"
 PROMPT_TEMPLATE = """
-Answer the question based only on the following context:
+You are an AI assistant. Use ONLY the context provided below to answer the question.
 
+If the answer is not in the context, say "I don't have enough information."
+
+Context:
 {context}
 
 ---
 
-Answer the question based on the above context: {question}
+Question: {question}
+Answer:
 """
+
 def get_embedding_function():
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+
+## whatsapp api
+@app.route("/send-whatsapp", methods=["POST"])
+def send_whatsapp():
+    data = request.get_json()
+    number = data.get("to")
+    message = data.get("message")
+
+    if not number or not message:
+        return jsonify({"error": "Missing number or message"}), 400
+
+    result = whatsapp.send_whatsapp_message(number, message)
+    return jsonify(result), 200
 
 
 @app.route('/push_user_info_database',methods=['POST'])
@@ -89,11 +114,13 @@ def process_file_with_ml(file_stream, user_id):
 
         # Split the documents into chunks
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1024,
-            chunk_overlap=80,
+            chunk_size=800,
+            chunk_overlap=200,
             length_function=len,
             is_separator_regex=False
         )
+        
+        
         chunks = splitter.split_documents(documents)
 
         # Assign unique IDs to chunks
@@ -178,16 +205,31 @@ def question_asked():
     }), 200
 
 
+# def get_llm():
+#     model_id = "mistralai/Mistral-7B-Instruct-v0.1"
+
+#     tokenizer = AutoTokenizer.from_pretrained(model_id)
+#     model = AutoModelForCausalLM.from_pretrained(
+#         model_id,
+#         device_map="auto",         # Uses GPU if available
+#         torch_dtype=torch.float16  # Use float32 if running on CPU
+#     )
+
+#     gen_pipeline = pipeline(
+#         "text-generation",
+#         model=model,
+#         tokenizer=tokenizer,
+#         max_new_tokens=512,
+#         do_sample=True,
+#         temperature=0.7,
+#         top_k=50,
+#         top_p=0.95
+#     )
+
+#     return HuggingFacePipeline(pipeline=gen_pipeline)
 
 def get_llm():
-    """
-    Initialize and return a Hugging Face pipeline for text generation.
-    """
-    model_id = "google/flan-t5-base"  # You can replace this with another model if needed
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
-    pipe = pipeline("text2text-generation", model=model, tokenizer=tokenizer, max_new_tokens=256)
-    return HuggingFacePipeline(pipeline=pipe)
+    return Ollama(model="mistral")
 
 
 if __name__ == '__main__':

@@ -4,13 +4,13 @@ import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.
 
 // 1. Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyB-0TL358O140wB7PeuA_NIEBvQaoFHM9A",
-  authDomain: "whatsapp-chatbot-33551.firebaseapp.com",
-  projectId: "whatsapp-chatbot-33551",
-  storageBucket: "whatsapp-chatbot-33551.firebasestorage.app",
-  messagingSenderId: "340832961461",
-  appId: "1:340832961461:web:27141c87178c87cdff8ffc",
-  measurementId: "G-53HFLMV94E"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_APP_ID,
+  measurementId: process.env.REACT_APP_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
