@@ -1,4 +1,4 @@
-from flask import Flask , request , jsonify
+from flask import Flask , request , jsonify, send_file
 from flask_cors import CORS
 
 import os
@@ -21,16 +21,20 @@ import chromadb
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from langchain_community.llms import HuggingFacePipeline
 import torch
-import whatsapp
+#import whatsapp
 from langchain_community.llms import Ollama
+# import qrcode
+# import firebase_admin
+# from firebase_admin import credentials, firestore
 
 
 app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://127.0.0.1:5500", "http://localhost:5500","http://localhost:5173"],  # Your React dev server 
+        "origins": ["http://127.0.0.1:5500", "http://localhost:5500","http://localhost:5173", "http://127.0.0.1:5173"],  # Your React dev server 
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization", "Accept"],
+        "expose_headers": ["Content-Type"],
         "supports_credentials": True
     }
 })
@@ -55,18 +59,47 @@ def get_embedding_function():
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
+# # Initialize Firebase Admin SDK
+# cred = credentials.Certificate("whatsapp-chatbot-33551-firebase-adminsdk-fbsvc-ab7903f1b4.json")  # Replace with the path to your JSON file
+# firebase_admin.initialize_app(cred)
+
+# # Access Firestore
+# db = firestore.client()
+
+# def get_whatsapp_uid(user_id1):
+#     try:
+#         # Reference the 'phone_numbers' collection and 'whatsapp' document
+#         doc_ref = db.collection('phone_numbers').document(user_id1)
+#         doc = doc_ref.get()
+
+#         # Check if the document exists
+#         if doc.exists:
+#             # Retrieve the UID from the document
+#             data = doc.to_dict()
+#             uid = data.get('uid')  # Replace 'uid' with the actual field name in your document
+
+#             # Store the UID (example: save to a file or database)
+#             with open('uid_storage.txt', 'w') as file:
+#                 file.write(uid)
+
+#             return jsonify({'message': 'UID retrieved and stored successfully', 'uid': uid}), 200
+#         else:
+#             return jsonify({'error': 'Document not found'}), 404
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
+
 ## whatsapp api
-@app.route("/send-whatsapp", methods=["POST"])
-def send_whatsapp():
-    data = request.get_json()
-    number = data.get("to")
-    message = data.get("message")
+# @app.route("/send-whatsapp", methods=["POST"])
+# def send_whatsapp():
+#     data = request.get_json()
+#     number = data.get("to")
+#     message = data.get("message")
 
-    if not number or not message:
-        return jsonify({"error": "Missing number or message"}), 400
+#     if not number or not message:
+#         return jsonify({"error": "Missing number or message"}), 400
 
-    result = whatsapp.send_whatsapp_message(number, message)
-    return jsonify(result), 200
+#     result = whatsapp.send_whatsapp_message(number, message)
+#     return jsonify(result), 200
 
 
 @app.route('/push_user_info_database',methods=['POST'])
@@ -148,50 +181,63 @@ def process_file_with_ml(file_stream, user_id):
         # Clean up the temporary file
         os.remove(temp_pdf_path)
 
+
 @app.route('/question_asked', methods=['POST'])
 def question_asked():
-    data = request.get_json()
-    
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-        
-    query = data.get('query')
-    user_id = data.get('userId')
+    if request.content_type == 'application/x-www-form-urlencoded':
+        # WhatsApp webhook request
+        data = request.form
+        query_text = data.get('Body')  # Message text from WhatsApp
+        user_id = data.get('From')    # Sender's WhatsApp number
+        # user_id = get_whatsapp_uid(user_id1)  # Get userId from WhatsApp number
+        is_whatsapp = True
+        print(data)
+        print(query_text)
+        print(user_id)
+    else:
+        # API request
+        data = request.get_json()
+        query_text = data.get('query')
+        user_id = data.get('userId')
+        is_whatsapp = False
 
-    if not query:
+ 
+    if not query_text:
         return jsonify({'error': 'No query provided'}), 400
 
     if not user_id:
         return jsonify({'error': 'No userId provided'}), 400
 
+    print("behind of db")
     db = Chroma(
         persist_directory=CHROMA_PATH,
         embedding_function=get_embedding_function()
     )
-
+    print("ahead of db")
     validation_results = db.similarity_search_with_score(
         query="*",  # Dummy query to fetch all chunks
         k=1,  # Fetch only one result for validation
         filter={"userId": user_id}
     )
-
+    print("validation results")
+    print(validation_results)
     if not validation_results:
         return jsonify({'error': 'No matching document found for the given userId and documentId.'}), 404
-
+    print("Validation results found")
     # Perform similarity search for the query
     results = db.similarity_search_with_score(
-        query=query,
+        query=query_text,
         k=5,
         filter={"userId": user_id}
     )
-
+    print("ahead of similarity")
     if not results:
         return jsonify({'error': 'No relevant documents found in the database.'}), 404
 
     # Prepare the context from the top results
     context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-    prompt = prompt_template.format(context=context_text, question=query)
+    prompt = prompt_template.format(context=context_text, question=query_text)
 
     # Generate an answer using the LLM
     llm = get_llm()
@@ -202,35 +248,47 @@ def question_asked():
 
     return jsonify({
         'response': response_text,
+        'sources': sources
     }), 200
 
+# @app.route('/generate_qr', methods=['GET'])
+# def generate_qr():
+#     try:
+#         # Generate QR code with WhatsApp link
+#         whatsapp_link = "https://wa.me/14155238886?text=Hi%2C%20I%20want%20to%20chat%20with%20the%20bot"
 
-# def get_llm():
-#     model_id = "mistralai/Mistral-7B-Instruct-v0.1"
+#         # Create QR code in memory
+#         qr = qrcode.QRCode(
+#             version=1,
+#             error_correction=qrcode.constants.ERROR_CORRECT_L,
+#             box_size=10,
+#             border=4,
+#         )
+#         qr.add_data(whatsapp_link)
+#         qr.make(fit=True)
 
-#     tokenizer = AutoTokenizer.from_pretrained(model_id)
-#     model = AutoModelForCausalLM.from_pretrained(
-#         model_id,
-#         device_map="auto",         # Uses GPU if available
-#         torch_dtype=torch.float16  # Use float32 if running on CPU
-#     )
+#         # Create image in memory
+#         img_io = BytesIO()
+#         img = qr.make_image(fill_color="black", back_color="white")
+#         img.save(img_io, 'PNG')
+#         img_io.seek(0)
 
-#     gen_pipeline = pipeline(
-#         "text-generation",
-#         model=model,
-#         tokenizer=tokenizer,
-#         max_new_tokens=512,
-#         do_sample=True,
-#         temperature=0.7,
-#         top_k=50,
-#         top_p=0.95
-#     )
+#         return send_file(
+#             img_io, 
+#             mimetype='image/png',
+#             as_attachment=False
+#         )
 
-#     return HuggingFacePipeline(pipeline=gen_pipeline)
+#     except Exception as e:
+#         print(f"Error generating QR code: {str(e)}")  # Debug logging
+#         return jsonify({'error': str(e)}), 500
 
 def get_llm():
     return Ollama(model="mistral")
 
-
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == '__main__':  # Fix the main condition
+    print("Starting Flask server...")
+    try:
+        app.run(host='0.0.0.0', port=5000, debug=True)  # Enable debug mode for development
+    except Exception as e:
+        print(f"Error starting server: {e}")

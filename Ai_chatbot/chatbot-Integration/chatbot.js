@@ -4,17 +4,31 @@ import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.
 
 // 1. Firebase config
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_APP_ID,
-  measurementId: process.env.REACT_APP_MEASUREMENT_ID
+  apiKey: "AIzaSyB-0TL358O140wB7PeuA_NIEBvQaoFHM9A",
+  authDomain: "whatsapp-chatbot-33551.firebaseapp.com",
+  projectId: "whatsapp-chatbot-33551",
+  storageBucket: "whatsapp-chatbot-33551.firebasestorage.app",
+  messagingSenderId: "340832961461",
+  appId: "1:340832961461:web:27141c87178c87cdff8ffc",
+  measurementId: "G-53HFLMV94E"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+// Add after Firebase initialization and before the askQuestion function
+function getCurrentUserId() {
+    // First try to get from localStorage
+    let userId = localStorage.getItem('chatbot_user_id');
+    
+    // If no userId exists, create a new one
+    if (!userId) {
+        userId = 'user_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('chatbot_user_id', userId);
+    }
+    
+    return userId;
+}
 
 // 2. Inject Chatbot CSS
 function injectStyles() {
@@ -348,65 +362,40 @@ window.mountChatbot = async (containerId, { chatbotId }) => {
   }
 };
 
-async function askQuestion(query, chatbotId) {
-  if (!query || !chatbotId) {
-    console.error("Missing parameters:", { query, chatbotId });
-    throw new Error("Missing query or userId");
-  }
+// Update the askQuestion function to use the userId
+async function askQuestion(question) {
+    try {
+        const userId = getCurrentUserId();
+        
+        const response = await fetch('http://localhost:5000/question_asked', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: question,
+                userId: userId
+            })
+        });
 
-  try {
-    const response = await fetch("http://localhost:5000/question_asked", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      mode: 'cors',
-      credentials: 'include', 
-      body: JSON.stringify({
-        query: query.trim(),
-        userId: chatbotId
-      })
-    });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        return {
+            text: data.response,
+            sources: data.sources || []
+        };
+    } catch (error) {
+        console.error('Error in askQuestion:', error);
+        throw error;
     }
-
-    const data = await response.json();
-    console.log('API Response:', data); // Debug log
-
-    // Handle different response formats
-    if (typeof data === 'object') {
-      // If data is directly the response string
-      if (typeof data === 'string') {
-        return { response: data };
-      }
-      // If data is an object with response property
-      if (data.response) {
-        return { response: data.response };
-      }
-      // If data is an object with message property
-      if (data.message) {
-        return { response: data.message };
-      }
-      // If data is an object with answer property
-      if (data.answer) {
-        return { response: data.answer };
-      }
-      // If none of the above, stringify the object
-      return { 
-        response: JSON.stringify(data, null, 2)
-      };
-    }
-
-    throw new Error('Invalid response format');
-
-  } catch (error) {
-    console.error("Error in askQuestion:", error);
-    throw error;
-  }
 }
 
 function addMessage(container, message) {
@@ -429,53 +418,54 @@ function addMessage(container, message) {
 }
 
 const sendMessage = async (container, chatbotId) => {
-  if (!chatbotId) {
-    console.error("No chatbotId provided to sendMessage");
-    return;
-  }
+    if (!chatbotId) {
+        console.error("No chatbotId provided to sendMessage");
+        return;
+    }
 
-  const inputEl = container.querySelector(".chatbot-input input");
-  const messagesContainer = container.querySelector(".chatbot-messages");
-  const text = inputEl.value.trim();
-  
-  if (!text) return;
+    const userId = getCurrentUserId(); // Get the user ID
+    const inputEl = container.querySelector(".chatbot-input input");
+    const messagesContainer = container.querySelector(".chatbot-messages");
+    const text = inputEl.value.trim();
+    
+    if (!text) return;
 
-  try {
-    // Add user message immediately
-    addMessage(messagesContainer, {
-      type: 'user',
-      text: text
-    });
+    try {
+        // Add user message immediately
+        addMessage(messagesContainer, {
+            type: 'user',
+            text: text
+        });
 
-    // Clear input and show loading
-    inputEl.value = "";
-    showTypingIndicator(container, true);
+        // Clear input and show loading
+        inputEl.value = "";
+        showTypingIndicator(container, true);
 
-    // Get response from API
-    const data = await askQuestion(text, chatbotId);
+        // Get response from API with userId
+        const data = await askQuestion(text);
 
-    // Format the response text
-    const responseText = typeof data.response === 'object' 
-      ? JSON.stringify(data.response, null, 2)
-      : String(data.response);
+        // Format the response text
+        const responseText = typeof data.response === 'object' 
+          ? JSON.stringify(data.response, null, 2)
+          : String(data.response);
 
-    // Add bot response
-    addMessage(messagesContainer, {
-      type: 'bot',
-      text: responseText,
-      sources: data.sources
-    });
+        // Add bot response
+        addMessage(messagesContainer, {
+            type: 'bot',
+            text: responseText,
+            sources: data.sources
+        });
 
-  } catch (error) {
-    console.error("Error in sendMessage:", error);
-    addMessage(messagesContainer, {
-      type: 'error',
-      text: error.message || 'Sorry, I encountered an error. Please try again.'
-    });
-  } finally {
-    showTypingIndicator(container, false);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }
+    } catch (error) {
+        console.error("Error in sendMessage:", error);
+        addMessage(messagesContainer, {
+            type: 'error',
+            text: error.message || 'Sorry, I encountered an error. Please try again.'
+        });
+    } finally {
+        showTypingIndicator(container, false);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
 };
 
 function showTypingIndicator(container, show = true) {

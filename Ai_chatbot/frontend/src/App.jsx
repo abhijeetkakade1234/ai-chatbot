@@ -7,6 +7,7 @@ import Dashboard from './Dashboard';
 import Settings from './Settings';
 import KnowledgeBase from './KnowledgeBase';
 import ProtectedRoute from './ProtectedRoute';
+import WhatsAppPage from './WhatsAppPage';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -55,6 +56,7 @@ function App() {
           } 
         />
         <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+        <Route path="/whatsapp" element={<WhatsAppPage />} />
       </Routes>
     </Router>
   );

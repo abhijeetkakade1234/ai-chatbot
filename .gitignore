@@ -3,3 +3,8 @@
 Thumbs.db
 chroma.sqlite3
 length.bin
+header.bin
+link_lists.bin
+data_length0.bin
+python.exe
+.pyc

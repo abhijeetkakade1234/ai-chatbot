@@ -1,6 +1,19 @@
-Flask==2.3.2
+flask==2.3.2
+flask-cors==4.0.0
 langchain==0.0.208
+langchain-community==0.0.10
+langchain-core==0.1.6
 chromadb==0.3.26
 pypdf==3.15.2
-langchain-text-splitters==0.3.8
+qrcode[pil]==7.4.2
+firebase-admin==6.2.0
 sentence-transformers==2.2.2
+transformers==4.34.0
+torch==2.1.0
+ollama==0.1.6
+
+# Add to d:\ai chatbot\Ai_chatbot\.gitignore
+# Docker
+.docker/
+*.env
+.dockerignore
