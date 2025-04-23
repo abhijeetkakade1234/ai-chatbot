@@ -15,9 +15,9 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 from uuid import uuid4
 from io import BytesIO
 import tempfile
-# import qrcode
-# import firebase_admin
-# from firebase_admin import credentials, firestore
+import qrcode
+import firebase_admin
+from firebase_admin import credentials, firestore
 from langchain_community.document_loaders import PyPDFLoader
 import chromadb
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
@@ -63,33 +63,37 @@ def get_embedding_function():
     )
 
 
-# Initialize Firebase Admin SDK with proper error handling
-# try:
-#     current_dir = os.path.dirname(os.path.abspath(__file__))
-#     cred_path = os.path.join(current_dir, "config", "whatsapp-chatbot-33551-firebase-adminsdk-fbsvc-ab7903f1b4.json")
+#Initialize Firebase Admin SDK with proper error handling
+try:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    cred_path = os.path.join(current_dir, "config", "whatsapp-chatbot-33551-firebase-adminsdk-fbsvc-ab7903f1b4.json")
     
-#     cred = credentials.Certificate(cred_path)
-#     firebase_admin.initialize_app(cred)
-#     db = firestore.client()
-#     print("Firebase initialized successfully")
-# except FileNotFoundError:
-#     print("Error: Firebase credentials file not found")
-#     print(f"Expected path: {cred_path}")
-#     exit(1)
-# except Exception as e:
-#     print(f"Error initializing Firebase: {e}")
-#     exit(1)
+    cred = credentials.Certificate(cred_path)
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("Firebase initialized successfully")
+except FileNotFoundError:
+    print("Error: Firebase credentials file not found")
+    print(f"Expected path: {cred_path}")
+    exit(1)
+except Exception as e:
+    print(f"Error initializing Firebase: {e}")
+    exit(1)
 
 # def get_whatsapp_uid(user_id1):
 #     try:
 #         # Reference the 'phone_numbers' collection and 'whatsapp' document
 #         doc_ref = db.collection('phone_numbers').document(user_id1)
 #         doc = doc_ref.get()
-
+#         print(user_id1)
+#         print(doc)
+#         data = doc.to_dict()
+#         print(data)
 #         # Check if the document exists
 #         if doc.exists:
 #             # Retrieve the UID from the document
-#             data = doc.to_dict()
+#             print("inside")
+#             print(data)
 #             return data.get('uid')  # Return just the UID string
 #         else:
 #             return None  # Return None if document not found
@@ -97,18 +101,57 @@ def get_embedding_function():
 #         print(f"Error getting WhatsApp UID: {str(e)}")
 #         return None
 
-# ## whatsapp api
-# @app.route("/send-whatsapp", methods=["POST"])
-# def send_whatsapp():
-#     data = request.get_json()
-#     number = data.get("to")
-#     message = data.get("message")
 
-#     if not number or not message:
-#         return jsonify({"error": "Missing number or message"}), 400
+def get_whatsapp_uid(user_id1):
+    try:
+        # Clean up WhatsApp number format
+        
+        print(f"\nProcessing WhatsApp number:")
+        print(f"Original: {user_id1}")
+       
 
-#     result = whatsapp.send_whatsapp_message(number, message)
-#     return jsonify(result), 200
+        # Get document reference and snapshot
+        doc_ref = db.collection('phone_numbers').document(user_id1)
+        doc = doc_ref.get()
+
+        # Print document details
+        print("\nDocument Details:")
+        print(f"Document ID: {doc.id}")
+        print(f"Document Path: {doc_ref.path}")
+        print(f"Document Exists: {doc.exists}")
+
+        # Check existence before accessing data
+        if doc.exists:
+            data = doc.to_dict()
+            print(f"\nDocument Data: {data}")
+            uid = data.get('uid')
+            if uid:
+                print(f"Found UID: {uid}")
+                return uid
+            else:
+                print("No UID field found in document")
+                return None
+        else:
+            print(f"\nNo document found for number: {clean_number}")
+            return None
+
+    except Exception as e:
+        print(f"\nError getting WhatsApp UID: {str(e)}")
+        return None
+    
+
+## whatsapp api
+@app.route("/send-whatsapp", methods=["POST"])
+def send_whatsapp():
+    data = request.get_json()
+    number = data.get("to")
+    message = data.get("message")
+
+    if not number or not message:
+        return jsonify({"error": "Missing number or message"}), 400
+
+    result = whatsapp.send_whatsapp_message(number, message)
+    return jsonify(result), 200
 
 
 @app.route('/push_user_info_database',methods=['POST'])
@@ -206,10 +249,12 @@ def question_asked():
             data = request.form
             query_text = data.get('Body')  # Message text from WhatsApp
             whatsapp_number = data.get('From')    # Sender's WhatsApp number
-            
-            # Get userId from WhatsApp number
-            # user_id = get_whatsapp_uid(whatsapp_number)
-            user_id=whatsapp_number
+            print(whatsapp_number)
+            #Get userId from WhatsApp number
+            user_id1 = get_whatsapp_uid(whatsapp_number)
+            user_id = user_id1
+            print(user_id)
+            print(query_text)
 
             if not user_id:
                 return jsonify({'error': 'User not found'}), 404
@@ -285,37 +330,37 @@ def question_asked():
             'details': str(e)
         }), 500
 
-# @app.route('/generate_qr', methods=['GET'])
-# def generate_qr():
-#     try:
-#         # Generate QR code with WhatsApp link
-#         whatsapp_link = "https://wa.me/14155238886?text=Hi%2C%20I%20want%20to%20chat%20with%20the%20bot"
+@app.route('/generate_qr', methods=['GET'])
+def generate_qr():
+    try:
+        # Generate QR code with WhatsApp link
+        whatsapp_link = "https://wa.me/14155238886?text=Hi%2C%20I%20want%20to%20chat%20with%20the%20bot"
 
-#         # Create QR code in memory
-#         qr = qrcode.QRCode(
-#             version=1,
-#             error_correction=qrcode.constants.ERROR_CORRECT_L,
-#             box_size=10,
-#             border=4,
-#         )
-#         qr.add_data(whatsapp_link)
-#         qr.make(fit=True)
+        # Create QR code in memory
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(whatsapp_link)
+        qr.make(fit=True)
 
-#         # Create image in memory
-#         img_io = BytesIO()
-#         img = qr.make_image(fill_color="black", back_color="white")
-#         img.save(img_io, 'PNG')
-#         img_io.seek(0)
+        # Create image in memory
+        img_io = BytesIO()
+        img = qr.make_image(fill_color="black", back_color="white")
+        img.save(img_io, 'PNG')
+        img_io.seek(0)
 
-#         return send_file(
-#             img_io, 
-#             mimetype='image/png',
-#             as_attachment=False
-#         )
+        return send_file(
+            img_io, 
+            mimetype='image/png',
+            as_attachment=False
+        )
 
-#     except Exception as e:
-#         print(f"Error generating QR code: {str(e)}")  # Debug logging
-#         return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        print(f"Error generating QR code: {str(e)}")  # Debug logging
+        return jsonify({'error': str(e)}), 500
 
 def get_llm():
     print("in llm")

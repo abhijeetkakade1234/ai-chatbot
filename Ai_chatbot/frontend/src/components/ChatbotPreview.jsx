@@ -118,7 +118,8 @@ function ChatbotPreview({ chatbotId, chatbotSize, backgroundColor, logoUrl, init
           userId: chatbotId
         })
       });
-
+      console.log('Response status:', response.status); // Debug log
+      console.log('Response headers:', response.headers.get('Content-Type')); // Debug log
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
