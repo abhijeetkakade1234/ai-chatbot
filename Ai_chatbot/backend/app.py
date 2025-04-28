@@ -1,7 +1,6 @@
-from flask import Flask , request , jsonify
-
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 import os
-import shutil
 import shutil
 from typing import List
 from langchain_community.embeddings.ollama import OllamaEmbeddings
@@ -13,26 +12,174 @@ from langchain_community.vectorstores import Chroma
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.llms import HuggingFacePipeline
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
-from uuid import uuid4  # For generating unique document IDs
-from io import BytesIO  # For handling file streams
+from uuid import uuid4
+from io import BytesIO
 import tempfile
+import qrcode
+import firebase_admin
+from firebase_admin import credentials, firestore
 from langchain_community.document_loaders import PyPDFLoader
+import chromadb
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from langchain_community.llms import HuggingFacePipeline
+import torch
+import whatsapp
+#from langchain_community.llms import Ollama
+from langchain_ollama import OllamaLLM
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langdetect import detect
 
-app=Flask(__name__)
+# Add these at the top if not already present
+from transformers import pipeline
+
+# Initialize translation pipelines once (global variables for performance)
+# English to other languages (we'll dynamically create if needed)
+
+app = Flask(__name__)
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://127.0.0.1:5500", "http://localhost:5500","http://localhost:5173", "http://127.0.0.1:5173"],  # Your React dev server 
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Accept"],
+        "expose_headers": ["Content-Type"],
+        "supports_credentials": True
+    }
+})
 
 CHROMA_PATH = "chroma"
 DATA_PATH = "data"
 PROMPT_TEMPLATE = """
-Answer the question based only on the following context:
+You are an AI assistant. Use ONLY the context provided below to answer the question.
 
+If the answer is not in the context, say "I don't have enough information."
+
+Context:
 {context}
 
 ---
 
-Answer the question based on the above context: {question}
+Question: {question}
+Answer:
 """
+
+translation_pipelines = {}
+
+translator_to_english = pipeline("translation", model="Helsinki-NLP/opus-mt-mul-en")
+
+def translate_to_english(text):
+    return translator_to_english(text)[0]['translation_text']
+
+def translate_from_english(text, target_lang):
+    # Lazy load the model if not already loaded
+    if target_lang not in translation_pipelines:
+        model_name = f"Helsinki-NLP/opus-mt-en-{target_lang}"
+        try:
+            translation_pipelines[target_lang] = pipeline("translation", model=model_name)
+        except Exception as e:
+            print(f"Translation model for {target_lang} not found: {e}")
+            return text  # fallback to English if no model
+
+    translator = translation_pipelines[target_lang]
+    return translator(text)[0]['translation_text']
+
+
 def get_embedding_function():
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    return HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={'device': 'cpu'}
+    )
+
+
+#Initialize Firebase Admin SDK with proper error handling
+try:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    cred_path = os.path.join(current_dir, "config", "whatsapp-chatbot-33551-firebase-adminsdk-fbsvc-ab7903f1b4.json")
+    
+    cred = credentials.Certificate(cred_path)
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    print("Firebase initialized successfully")
+except FileNotFoundError:
+    print("Error: Firebase credentials file not found")
+    print(f"Expected path: {cred_path}")
+    exit(1)
+except Exception as e:
+    print(f"Error initializing Firebase: {e}")
+    exit(1)
+
+# def get_whatsapp_uid(user_id1):
+#     try:
+#         # Reference the 'phone_numbers' collection and 'whatsapp' document
+#         doc_ref = db.collection('phone_numbers').document(user_id1)
+#         doc = doc_ref.get()
+#         print(user_id1)
+#         print(doc)
+#         data = doc.to_dict()
+#         print(data)
+#         # Check if the document exists
+#         if doc.exists:
+#             # Retrieve the UID from the document
+#             print("inside")
+#             print(data)
+#             return data.get('uid')  # Return just the UID string
+#         else:
+#             return None  # Return None if document not found
+#     except Exception as e:
+#         print(f"Error getting WhatsApp UID: {str(e)}")
+#         return None
+
+
+def get_whatsapp_uid(user_id1):
+    try:
+        # Clean up WhatsApp number format
+        
+        print(f"\nProcessing WhatsApp number:")
+        print(f"Original: {user_id1}")
+       
+
+        # Get document reference and snapshot
+        doc_ref = db.collection('phone_numbers').document(user_id1)
+        doc = doc_ref.get()
+
+        # Print document details
+        print("\nDocument Details:")
+        print(f"Document ID: {doc.id}")
+        print(f"Document Path: {doc_ref.path}")
+        print(f"Document Exists: {doc.exists}")
+
+        # Check existence before accessing data
+        if doc.exists:
+            data = doc.to_dict()
+            print(f"\nDocument Data: {data}")
+            uid = data.get('uid')
+            if uid:
+                print(f"Found UID: {uid}")
+                return uid
+            else:
+                print("No UID field found in document")
+                return None
+        else:
+            print(f"\nNo document found for number: {clean_number}")
+            return None
+
+    except Exception as e:
+        print(f"\nError getting WhatsApp UID: {str(e)}")
+        return None
+    
+
+## whatsapp api
+@app.route("/send-whatsapp", methods=["POST"])
+def send_whatsapp():
+    data = request.get_json()
+    number = data.get("to")
+    message = data.get("message")
+
+    if not number or not message:
+        return jsonify({"error": "Missing number or message"}), 400
+
+    result = whatsapp.send_whatsapp_message(number, message)
+    return jsonify(result), 200
 
 
 @app.route('/push_user_info_database',methods=['POST'])
@@ -81,10 +228,12 @@ def process_file_with_ml(file_stream, user_id):
         # Split the documents into chunks
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=800,
-            chunk_overlap=80,
+            chunk_overlap=200,
             length_function=len,
             is_separator_regex=False
         )
+        
+        
         chunks = splitter.split_documents(documents)
 
         # Assign unique IDs to chunks
@@ -94,13 +243,20 @@ def process_file_with_ml(file_stream, user_id):
             chunk.metadata["chunkId"] = f"{document_id}:{index}"
 
         # Store the chunks in the Chroma database
-        db = Chroma(
+        settings = chromadb.Settings(
             persist_directory=CHROMA_PATH,
+            is_persistent=True
+        )
+        client = chromadb.Client(settings)
+        
+        db = Chroma(
+            client=client,
+            collection_name=f"user_{user_id}",
             embedding_function=get_embedding_function()
         )
+        
         chunk_ids = [chunk.metadata["chunkId"] for chunk in chunks]
         db.add_documents(chunks, ids=chunk_ids)
-        db.persist()
 
         return {
             "userId": user_id,
@@ -112,72 +268,146 @@ def process_file_with_ml(file_stream, user_id):
         # Clean up the temporary file
         os.remove(temp_pdf_path)
 
-@app.route('/question_asked',methods=['POST'])
+
+@app.route('/question_asked', methods=['POST'])
 def question_asked():
-    data=request.get_json()
-    query_text = data.get('query')
-    user_id = data.get('userId')
- 
-    if not query_text:
-        return jsonify({'error': 'No query provided'}), 400
+    try:
+        if request.content_type == 'application/x-www-form-urlencoded':
+            # WhatsApp webhook request
+            data = request.form
+            query_text = data.get('Body')
+            whatsapp_number = data.get('From')
+            print(whatsapp_number)
+            user_id1 = get_whatsapp_uid(whatsapp_number)
+            user_id = user_id1
+            print(user_id)
+            print(query_text)
 
-    if not user_id:
-        return jsonify({'error': 'No userId provided'}), 400
+            if not user_id:
+                return jsonify({'error': 'User not found'}), 404
+                
+            is_whatsapp = True
+        else:
+            # Regular API request
+            data = request.get_json()
+            query_text = data.get('query')
+            user_id = data.get('userId')
+            is_whatsapp = False
+
+        if not query_text:
+            return jsonify({'error': 'No query provided'}), 400
+
+        if not user_id:
+            return jsonify({'error': 'No userId provided'}), 400
+
+        # Language detection
+        detected_lang = detect(query_text)
+        print(f"Detected Language: {detected_lang}")
+
+        if detected_lang != 'en':
+            # Translate query to English
+            translated_query = translate_to_english(query_text)
+            print(f"Translated Query to English: {translated_query}")
+        else:
+            translated_query = query_text
+
+        settings = chromadb.Settings(
+            persist_directory=CHROMA_PATH,
+            is_persistent=True
+        )
+        client = chromadb.Client(settings)
+        
+        db = Chroma(
+            client=client,
+            collection_name=f"user_{user_id}",
+            embedding_function=get_embedding_function()
+        )
+
+        # Perform similarity search
+        results = db.similarity_search_with_score(
+            query=translated_query,
+            k=5,
+            filter={"userId": user_id}
+        )
+
+        if not results:
+            return jsonify({'error': 'No relevant documents found'}), 404
+
+        # Generate response
+        context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
+        prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+        prompt = prompt_template.format(context=context_text, question=translated_query)
+
+        llm = get_llm()
+        try:
+            print("outside of the llm")
+            response = llm.invoke(prompt)
+            response_text = str(response).strip()
+            print(response_text)
+        except Exception as llm_error:
+            print(f"LLM Error: {llm_error}")
+            response_text = "I apologize, but I encountered an error processing your question."
+
+        # Translate back if needed
+        if detected_lang != 'en':
+            response_text = translate_from_english(response_text, detected_lang)
+            print(f"Translated Response back to {detected_lang}: {response_text}")
+
+        if is_whatsapp:
+            return jsonify({'message': response_text}), 200
+        else:
+            return jsonify({'response': response_text}), 200
+
+    except Exception as e:
+        print(f"Error in question_asked: {str(e)}")
+        return jsonify({
+            'error': 'An error occurred processing your request',
+            'details': str(e)
+        }), 500
 
 
-    db = Chroma(
-        persist_directory=CHROMA_PATH,
-        embedding_function=get_embedding_function()
-    )
+@app.route('/generate_qr', methods=['GET'])
+def generate_qr():
+    try:
+        # Generate QR code with WhatsApp link
+        whatsapp_link = "https://wa.me/14155238886?text=Hi%2C%20I%20want%20to%20chat%20with%20the%20bot"
 
-    validation_results = db.similarity_search_with_score(
-        query_text="*",  # Dummy query to fetch all chunks
-        k=1,  # Fetch only one result for validation
-        filter={"userId": user_id}
-    )
+        # Create QR code in memory
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(whatsapp_link)
+        qr.make(fit=True)
 
-    if not validation_results:
-        return jsonify({'error': 'No matching document found for the given userId and documentId.'}), 404
+        # Create image in memory
+        img_io = BytesIO()
+        img = qr.make_image(fill_color="black", back_color="white")
+        img.save(img_io, 'PNG')
+        img_io.seek(0)
 
-    # Perform similarity search for the query
-    results = db.similarity_search_with_score(
-        query_text,
-        k=5,
-        filter={"userId": user_id}
-    )
+        return send_file(
+            img_io, 
+            mimetype='image/png',
+            as_attachment=False
+        )
 
-    if not results:
-        return jsonify({'error': 'No relevant documents found in the database.'}), 404
-
-    # Prepare the context from the top results
-    context_text = "\n\n---\n\n".join([doc.page_content for doc, _score in results])
-    prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-    prompt = prompt_template.format(context=context_text, question=query_text)
-
-    # Generate an answer using the LLM
-    llm = get_llm()
-    response_text = llm.invoke(prompt)
-
-    # Collect source document IDs
-    sources = [doc.metadata.get("chunkId", "unknown") for doc, _score in results]
-
-    return jsonify({
-        'response': response_text,
-        'sources': sources
-    }), 200
-
-
+    except Exception as e:
+        print(f"Error generating QR code: {str(e)}")  # Debug logging
+        return jsonify({'error': str(e)}), 500
 
 def get_llm():
-    """
-    Initialize and return a Hugging Face pipeline for text generation.
-    """
-    model_id = "google/flan-t5-base"  # You can replace this with another model if needed
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
-    pipe = pipeline("text2text-generation", model=model, tokenizer=tokenizer, max_new_tokens=256)
-    return HuggingFacePipeline(pipeline=pipe)
+    print("in llm")
+    return OllamaLLM(
+        model="mistral",
+        temperature=0.7,
+        format="",  # Ensure text format output
+        callback_manager=None  # Disable callbacks to prevent _type issues
+    )
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
+    #app.run(debug=True)
