@@ -30,8 +30,8 @@ function Sidebar() {
           <li onClick={() => navigate('/knowledgebase')}><span className="nav-icon">📄</span> Knowledge base</li>
           <li className="with-submenu"><span className="nav-icon">💬</span> Chats</li>
           <li onClick={() => navigate('/settings')}><span className="nav-icon">⚙️</span> Settings</li>
-          {/* <li><span className="nav-icon">🔴</span> Go live</li> */}
           <li onClick={() => navigate('/dashboard')}><span className="nav-icon">🌐</span> Website Chatbot</li>
+          <li onClick={() => navigate('/whatsapp')}><span className="nav-icon">📲</span> WhatsApp Chatbot</li>
         </ul>
       </nav>
       <div className="sidebar-footer">

@@ -18,7 +18,7 @@ function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [showResetForm, setShowResetForm] = useState(false);
-  
+
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -40,19 +40,20 @@ function AuthForm() {
 
   const handleEmailAuth = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
-      navigate('/dashboard');
+      // ✅ Go to upload after auth
+      navigate('/upload');
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -64,11 +65,12 @@ function AuthForm() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
-    
+
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      navigate('/dashboard');
+      // ✅ Go to upload after Google sign-in
+      navigate('/upload');
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -79,15 +81,15 @@ function AuthForm() {
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    
+
     if (!email) {
       setError('Email is required');
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       await sendPasswordResetEmail(auth, email);
       setResetEmailSent(true);
@@ -130,9 +132,9 @@ function AuthForm() {
                   required 
                 />
               </div>
-              
+
               {error && <div className="error-message">{error}</div>}
-              
+
               <div className="buttons-container">
                 <button 
                   type="submit" 
@@ -173,7 +175,7 @@ function AuthForm() {
               required 
             />
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input 
@@ -186,9 +188,9 @@ function AuthForm() {
               minLength="6"
             />
           </div>
-          
+
           {error && <div className="error-message">{error}</div>}
-          
+
           <div className="buttons-container">
             <button 
               type="submit" 
@@ -199,11 +201,9 @@ function AuthForm() {
             </button>
           </div>
         </form>
-        
-        <div className="separator">
-          <span>OR</span>
-        </div>
-        
+
+        <div className="separator"><span>OR</span></div>
+
         <button 
           onClick={handleGoogleSignIn} 
           className="btn google-btn"
@@ -223,7 +223,7 @@ function AuthForm() {
           >
             {isLogin ? 'Need an account? Sign Up' : 'Already have an account? Login'}
           </button>
-          
+
           {isLogin && (
             <button 
               type="button" 

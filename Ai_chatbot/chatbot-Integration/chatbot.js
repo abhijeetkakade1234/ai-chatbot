@@ -4,19 +4,19 @@ import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.
 
 // 1. Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyB-0TL358O140wB7PeuA_NIEBvQaoFHM9A",
-  authDomain: "whatsapp-chatbot-33551.firebaseapp.com",
-  projectId: "whatsapp-chatbot-33551",
-  storageBucket: "whatsapp-chatbot-33551.firebasestorage.app",
-  messagingSenderId: "340832961461",
-  appId: "1:340832961461:web:27141c87178c87cdff8ffc",
-  measurementId: "G-53HFLMV94E"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_APP_ID,
+  measurementId: process.env.REACT_APP_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 2. Inject Chatbot CSS
+// 2. Inject ChatbotPreview-style CSS
 function injectStyles() {
   const style = document.createElement("style");
   style.innerHTML = `
@@ -24,117 +24,169 @@ function injectStyles() {
       position: fixed;
       bottom: 20px;
       right: 20px;
+      z-index: 1000;
     }
 
     .chatbot-preview {
+      transition: all 0.3s ease-in-out;
+      width: 350px;
+      min-height: 500px;
       border-radius: 10px;
-      padding: 16px;
-      font-family: sans-serif;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      font-family: Arial, sans-serif;
+      color: #fff;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
       display: flex;
       flex-direction: column;
-      height: 400px;
-      width: 300px;
-      background-color: #000;
-      color: white;
-      transition: all 0.3s ease-in-out;
     }
 
     .chatbot-preview.small {
-      height: 400px;
+      min-height: 400px !important;
+      font-size: 0.9em;
     }
 
     .chatbot-preview.medium {
-      height: 500px;
+      min-height: 500px !important;
+      font-size: 1em;
     }
 
     .chatbot-preview.large {
-      height: 600px;
+      min-height: 600px !important;
+      font-size: 1.1em;
     }
 
     .chatbot-header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
       gap: 10px;
-      margin-bottom: 10px;
+      padding: 10px;
+      font-weight: bold;
+      background-color: rgba(0,0,0,0.3);
     }
 
     .chatbot-icon img {
       width: 30px;
       height: 30px;
       border-radius: 50%;
+      object-fit: cover;
     }
 
     .chatbot-title {
+      font-size: 1rem;
       flex-grow: 1;
     }
 
     .chatbot-close-btn {
       background: transparent;
-      color: white;
       border: none;
+      color: white;
       font-size: 20px;
       cursor: pointer;
     }
 
     .chatbot-body {
+      height: calc(100% - 60px);
       flex: 1;
+      background-color: #f5f5f5;
+      color: #000;
+      padding: 10px;
       display: flex;
       flex-direction: column;
-      overflow: hidden; /* Prevent double scrollbars */
+      overflow: hidden;
     }
 
-    .chatbot-message {
-      margin-bottom: 8px;
-      font-weight: bold;
+    .chatbot-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .message {
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 80%;
+    }
+
+    .message.user {
+      background-color: #007bff;
+      color: white;
+      align-self: flex-end;
+    }
+
+    .message.bot {
+      background-color: #f0f0f0;
+      color: #333;
+      align-self: flex-start;
+    }
+
+    .message.error {
+      background-color: #ffebee;
+      color: #c62828;
+      align-self: center;
+    }
+
+    .message.loading {
+      background-color: #f0f0f0;
+      color: #666;
+      align-self: center;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    .sources {
+      font-size: 0.8em;
+      margin-top: 4px;
+      color: #666;
     }
 
     .chatbot-questions {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      margin-bottom: 12px;
-      transition: all 0.3s ease;
     }
 
-    .chatbot-hint {
-      font-size: 12px;
-      margin-bottom: 8px;
-      opacity: 0.7;
+    .chatbot-question {
+      padding: 8px 12px;
+      background-color: #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .chatbot-question:hover {
+      background-color: #d0d0d0;
     }
 
     .chatbot-input {
+      margin-top: 10px;
       display: flex;
-      gap: 6px;
-      margin-top: auto;
+      gap: 5px;
     }
 
     .chatbot-input input {
       flex: 1;
-      padding: 6px 10px;
-      border-radius: 4px;
-      border: none;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
     }
 
-    .chatbot-input .send-btn {
-      background: white;
-      color: black;
+    .send-btn {
+      padding: 0 10px;
       border: none;
-      border-radius: 4px;
-      padding: 6px 10px;
+      background-color: #222;
+      color: #fff;
+      border-radius: 6px;
       cursor: pointer;
     }
 
-    .chatbot-footer {
-      font-size: 11px;
-      opacity: 0.6;
-      margin-top: auto;
-      text-align: center;
-      padding-top: 10px;
-    }
-
-    /* 🔘 Minimized icon style */
     .chatbot-toggle-button {
       width: 60px;
       height: 60px;
@@ -146,6 +198,9 @@ function injectStyles() {
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      position: absolute;
+      bottom: 0;
+      right: 0;
     }
 
     .chatbot-toggle-button img {
@@ -157,62 +212,6 @@ function injectStyles() {
     .hidden {
       display: none !important;
     }
-    .chatbot-typing {
-      font-style: italic;
-      font-size: 13px;
-      color: #ccc;
-      margin-bottom: 10px;
-      animation: blink 1.2s infinite;
-    }
-
-    @keyframes blink {
-      0% { opacity: 0.2; }
-      50% { opacity: 1; }
-      100% { opacity: 0.2; }
-    }
-
-    .user-message {
-      background-color: #007bff;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-left: auto;
-      max-width: 80%;
-    }
-
-    .bot-message {
-      background-color: #f0f0f0;
-      color: #333;
-      padding: 8px 12px;
-      border-radius: 8px;
-      margin-right: auto;
-      max-width: 80%;
-    }
-
-    .error-message {
-      background-color: #ffebee;
-      color: #c62828;
-      padding: 8px 12px;
-      border-radius: 8px;
-      text-align: center;
-      margin: 8px auto;
-    }
-
-    .sources {
-      font-size: 0.8em;
-      margin-top: 4px;
-      color: #666;
-    }
-
-    .chatbot-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
   `;
   document.head.appendChild(style);
 }
@@ -222,34 +221,32 @@ function renderChatbot(container, data) {
   const wrapper = document.createElement("div");
   wrapper.className = "chatbot-container";
 
-  // 🧩 Main chatbot HTML block
   const chatbotHTML = `
     <div class="chatbot-preview ${data.chatbotSize || 'medium'}" style="background-color: ${data.backgroundColor || '#000'}">
       <div class="chatbot-header">
         <div class="chatbot-icon">
-          <img src="${data.logoUrl || '🤖'}" alt="Bot" />
+          ${data.logoUrl ? `<img src="${data.logoUrl}" alt="Bot" />` : `<span>🤖</span>`}
         </div>
-        <div class="chatbot-title">${data.botName || 'abc'}</div>
+        <div class="chatbot-title">${data.botName || 'Your Bot'}</div>
         <button class="chatbot-close-btn">×</button>
       </div>
 
       <div class="chatbot-body">
         <div class="chatbot-messages">
-          <div class="chatbot-message bot-message">${data.initialGreeting || 'How can I help?'}</div>
+          <div class="message bot">${data.initialGreeting || 'Hello! How can I assist you today?'}</div>
         </div>
-        <div class="chatbot-questions">
-          ${data.initialQuestions.map(q => `<div class="chatbot-question">${q}</div>`).join('')}
-        </div>
-        <div class="chatbot-input">
-          <input type="text" placeholder="Type here..." />
-          <button class="send-btn">➤</button>
-        </div>
-      </div>
 
-      <div class="chatbot-footer">Powered by</div>
+        <div class="chatbot-questions">
+          ${data.initialQuestions?.map(q => `<div class="chatbot-question">${q}</div>`).join("")}
+        </div>
+
+        <form class="chatbot-input">
+          <input type="text" placeholder="Type here..." />
+          <button type="submit" class="send-btn">➤</button>
+        </form>
+      </div>
     </div>
 
-    <!-- 🔘 Minimized logo-only button -->
     <div class="chatbot-toggle-button hidden">
       <img src="${data.logoUrl || '🤖'}" alt="Bot" />
     </div>
@@ -258,7 +255,6 @@ function renderChatbot(container, data) {
   wrapper.innerHTML = chatbotHTML;
   container.appendChild(wrapper);
 
-  // 💡 Logic for minimize and restore
   const chatbotBox = wrapper.querySelector(".chatbot-preview");
   const toggleBtn = wrapper.querySelector(".chatbot-toggle-button");
   const closeBtn = wrapper.querySelector(".chatbot-close-btn");
@@ -273,39 +269,22 @@ function renderChatbot(container, data) {
     toggleBtn.classList.add("hidden");
   });
 
-  // Update event listeners for chat
   const inputEl = wrapper.querySelector(".chatbot-input input");
-  const sendBtn = wrapper.querySelector(".chatbot-input .send-btn");
+  const form = wrapper.querySelector(".chatbot-input");
+  const questions = wrapper.querySelectorAll(".chatbot-question");
 
-  if (!data.chatbotId) {
-    console.error("No chatbotId provided in chatbot data");
-    return;
-  }
-
-  const handleSend = () => {
+  form.addEventListener("submit", e => {
+    e.preventDefault();
     const text = inputEl.value.trim();
     if (text) {
       sendMessage(wrapper, data.chatbotId);
     }
-  };
-
-  // Add click event listener to send button
-  sendBtn.addEventListener("click", handleSend);
-  
-  // Add enter key event listener to input
-  inputEl.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSend();
-    }
   });
 
-  // Update question click handlers
-  const questions = wrapper.querySelectorAll(".chatbot-question");
   questions.forEach(q => {
     q.addEventListener("click", () => {
       inputEl.value = q.innerText;
-      handleSend();
+      sendMessage(wrapper, data.chatbotId);
       q.parentElement.style.display = 'none';
     });
   });
@@ -335,10 +314,9 @@ window.mountChatbot = async (containerId, { chatbotId }) => {
       return;
     }
 
-    // Pass chatbotId along with the Firestore data
     const chatbotData = {
       ...snap.data(),
-      chatbotId  // Add chatbotId to the data object
+      chatbotId
     };
 
     renderChatbot(container, chatbotData);
@@ -362,7 +340,7 @@ async function askQuestion(query, chatbotId) {
         "Accept": "application/json"
       },
       mode: 'cors',
-      credentials: 'include', 
+      credentials: 'include',
       body: JSON.stringify({
         query: query.trim(),
         userId: chatbotId
@@ -375,30 +353,13 @@ async function askQuestion(query, chatbotId) {
     }
 
     const data = await response.json();
-    console.log('API Response:', data); // Debug log
 
-    // Handle different response formats
     if (typeof data === 'object') {
-      // If data is directly the response string
-      if (typeof data === 'string') {
-        return { response: data };
-      }
-      // If data is an object with response property
-      if (data.response) {
-        return { response: data.response };
-      }
-      // If data is an object with message property
-      if (data.message) {
-        return { response: data.message };
-      }
-      // If data is an object with answer property
-      if (data.answer) {
-        return { response: data.answer };
-      }
-      // If none of the above, stringify the object
-      return { 
-        response: JSON.stringify(data, null, 2)
-      };
+      if (typeof data === 'string') return { response: data };
+      if (data.response) return { response: data.response };
+      if (data.message) return { response: data.message };
+      if (data.answer) return { response: data.answer };
+      return { response: JSON.stringify(data, null, 2) };
     }
 
     throw new Error('Invalid response format');
@@ -411,84 +372,53 @@ async function askQuestion(query, chatbotId) {
 
 function addMessage(container, message) {
   const messageEl = document.createElement("div");
-  messageEl.className = `chatbot-message ${message.type}-message`;
-  
-  // Format the message text if it's an object
-  let text = message.text;
-  if (typeof text === 'object') {
-    text = JSON.stringify(text, null, 2);
-  }
-  
-  let html = text;
+  messageEl.className = `message ${message.type}`;
+  messageEl.innerText = message.text;
+
   if (message.sources) {
-    html += `<div class="sources">Sources: ${message.sources.join(', ')}</div>`;
+    const sources = document.createElement("div");
+    sources.className = "sources";
+    sources.innerText = `Sources: ${message.sources.join(", ")}`;
+    messageEl.appendChild(sources);
   }
-  
-  messageEl.innerHTML = html;
-  container.appendChild(messageEl);
+
+  const messagesContainer = container.querySelector(".chatbot-messages");
+  messagesContainer.appendChild(messageEl);
 }
 
 const sendMessage = async (container, chatbotId) => {
-  if (!chatbotId) {
-    console.error("No chatbotId provided to sendMessage");
-    return;
-  }
-
   const inputEl = container.querySelector(".chatbot-input input");
   const messagesContainer = container.querySelector(".chatbot-messages");
   const text = inputEl.value.trim();
-  
+
   if (!text) return;
 
   try {
-    // Add user message immediately
-    addMessage(messagesContainer, {
+    addMessage(container, {
       type: 'user',
       text: text
     });
 
-    // Clear input and show loading
     inputEl.value = "";
-    showTypingIndicator(container, true);
+    const loadingEl = document.createElement("div");
+    loadingEl.className = "message loading";
+    loadingEl.innerText = "Thinking...";
+    messagesContainer.appendChild(loadingEl);
 
-    // Get response from API
     const data = await askQuestion(text, chatbotId);
 
-    // Format the response text
-    const responseText = typeof data.response === 'object' 
-      ? JSON.stringify(data.response, null, 2)
-      : String(data.response);
+    messagesContainer.removeChild(loadingEl);
 
-    // Add bot response
-    addMessage(messagesContainer, {
+    addMessage(container, {
       type: 'bot',
-      text: responseText,
+      text: data.response,
       sources: data.sources
     });
-
   } catch (error) {
-    console.error("Error in sendMessage:", error);
-    addMessage(messagesContainer, {
+    console.error("sendMessage error:", error);
+    addMessage(container, {
       type: 'error',
-      text: error.message || 'Sorry, I encountered an error. Please try again.'
+      text: error.message || 'Something went wrong. Try again.'
     });
-  } finally {
-    showTypingIndicator(container, false);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 };
-
-function showTypingIndicator(container, show = true) {
-  const typingEl = container.querySelector(".chatbot-typing");
-  if (show) {
-    if (!typingEl) {
-      const newTypingEl = document.createElement("div");
-      newTypingEl.className = "chatbot-typing";
-      newTypingEl.innerText = "Bot is typing...";
-      const body = container.querySelector(".chatbot-body");
-      body.insertBefore(newTypingEl, body.querySelector(".chatbot-hint"));
-    }
-  } else {
-    typingEl?.remove();
-  }
-}

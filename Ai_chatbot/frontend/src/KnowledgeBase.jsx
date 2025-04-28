@@ -7,8 +7,7 @@ const KnowledgeBase = () => {
     const [articles, setArticles] = useState([]);
 
     const handleNewDocument = () => {
-        const options = ['Write Manually', 'Import URL', 'Upload PDF'];
-        // Implementation for new document creation
+        
     };
 
     const handleSearch = (e) => {

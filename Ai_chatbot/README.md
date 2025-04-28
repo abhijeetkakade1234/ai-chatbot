@@ -1,16 +1,12 @@
-Run the correct command:
-From your project root:
+# Navigate to project root
+cd d:\ai chatbot\Ai_chatbot
 
-bash
-Copy
-Edit
-npm run build:embed
-✅ This will create:
+# Build the image
+docker build -t ai-chatbot .
 
-bash
-Copy
-Edit
-dist/chatbot.bundle.js
-npm run build → for your dashboard app
-
-npm run build:embed → for the embeddable chatbot
+# Run the container with volume mounts
+docker run -p 80:80 -p 5000:5000 `
+  -v ${PWD}/backend/data:/app/backend/data `
+  -v ${PWD}/backend/chroma:/app/backend/chroma `
+  -v ${PWD}/backend/config:/app/backend/config `
+  ai-chatbot

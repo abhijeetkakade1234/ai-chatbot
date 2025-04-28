@@ -85,12 +85,14 @@ const FileUpload = () => {
       const result = await uploadFile(file, userId);
       setMessage(`File uploaded successfully! ${result.message || ''}`);
       setFile(null);
+      navigate('/dashboard');
       // Reset file input
       e.target.reset();
     } catch (error) {
       setMessage(`Upload failed: ${error.message}`);
     } finally {
       setIsUploading(false);
+      navigate('/dashboard');
     }
   };
 
@@ -128,3 +130,4 @@ const FileUpload = () => {
 };
 
 export default FileUpload;
+
