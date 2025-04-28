@@ -111,7 +111,7 @@ function Dashboard() {
               setBackgroundColor={setBackgroundColor}
               initialQuestions={initialQuestions}
               setInitialQuestions={setInitialQuestions}
-              fileUpload={FileUpload}
+              // fileUpload={FileUpload}
               onSave={handleSave}
               chatbotId={userId} 
             />

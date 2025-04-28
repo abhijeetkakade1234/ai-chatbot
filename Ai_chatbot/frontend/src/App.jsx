@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { onAuthStateChanged, getAuth } from 'firebase/auth';
-import { auth } from './firebase';
-import AuthForm from './AuthForm';
-import Dashboard from './Dashboard';
-import Settings from './Settings';
-import KnowledgeBase from './KnowledgeBase';
-import ProtectedRoute from './ProtectedRoute';
-import WhatsAppPage from './WhatsAppPage';
+import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { onAuthStateChanged, getAuth } from "firebase/auth";
+import { auth } from "./firebase";
+import AuthForm from "./AuthForm";
+import Dashboard from "./Dashboard";
+import Settings from "./Settings";
+import KnowledgeBase from "./KnowledgeBase";
+import ProtectedRoute from "./ProtectedRoute";
+import WhatsAppPage from "./WhatsAppPage";
+import FileUpload from "./components/FileUpload";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -31,32 +37,54 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/knowledgebase" element={
-          <ProtectedRoute>
-            <KnowledgeBase />
-          </ProtectedRoute>
-        } />
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        } />
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <AuthForm />} />
-        <Route 
-          path="/dashboard" 
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/knowledgebase"
+          element={
+            <ProtectedRoute>
+              <KnowledgeBase />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+      {/* closed this for now!! */}
+        {/* <Route
+          path="/login"
+          element={user ? <Navigate to="/upload" /> : <AuthForm />}
+        /> */}
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/dashboard" /> : <AuthForm />}
+        />
+        <Route
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <Dashboard userId={userId} />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+        <Route
+          path="*"
+          element={<Navigate to={user ? "/dashboard" : "/login"} />}
+        />
         <Route path="/whatsapp" element={<WhatsAppPage />} />
+        <Route path="/upload" element={<FileUpload />} />
+        <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </Router>
   );

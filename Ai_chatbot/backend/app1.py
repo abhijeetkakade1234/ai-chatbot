@@ -28,6 +28,7 @@ import whatsapp
 from langchain_ollama import OllamaLLM
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
+from twilio.rest import Client
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -39,7 +40,10 @@ CORS(app, resources={
         "supports_credentials": True
     }
 })
-
+TWILIO_ACCOUNT_SID = "AC537a0dba7867468ea0dfa9ee1eed9a62"
+TWILIO_AUTH_TOKEN="614352836da9ca7c2ec5a7588a862c8d"
+TWILIO_PHONE_NUMBER='whatsapp:+19476004435'
+TWILIO_PHONE_NUMBER1=+19476004435
 CHROMA_PATH = "chroma"
 DATA_PATH = "data"
 PROMPT_TEMPLATE = """
@@ -314,7 +318,21 @@ def question_asked():
 
         # Format response based on request type
         if is_whatsapp:
-            return jsonify({'message': response_text}), 200
+            whatsapp_number1=user_id1.replace('whatsapp:', '')
+            twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            print(TWILIO_PHONE_NUMBER)
+            print(whatsapp_number)
+            try:
+                twilio_client.messages.create(
+                    body=response_text,
+                    from_=TWILIO_PHONE_NUMBER,  # Your Twilio number
+                    to=whatsapp_number  # The sender's number
+                )
+                return jsonify({'message': response_text}), 200
+            except Exception as e:
+                print(f"Error sending WhatsApp message: {str(e)}")
+                return jsonify({'error': 'Failed to send WhatsApp message'}), 500   
+        
         else:
             return jsonify({
                 'response': response_text,

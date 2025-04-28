@@ -19,3 +19,4 @@ const app = initializeApp(firebaseConfig);
 // ✅ Export auth and db for use in your app
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
