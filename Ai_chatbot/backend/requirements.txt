@@ -11,9 +11,15 @@ sentence-transformers==2.2.2
 transformers==4.34.0
 torch==2.1.0
 ollama==0.1.6
+langchain_ollama
+langchain_huggingface
+langchain_chroma
+twilio
+langdetect
+sentencepiece
 
 # Add to d:\ai chatbot\Ai_chatbot\.gitignore
 # Docker
-.docker/
-*.env
-.dockerignore
+# .docker/
+# *.env
+# .dockerignore
