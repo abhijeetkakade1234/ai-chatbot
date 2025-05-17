@@ -1,6 +1,10 @@
 // chatbot.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+} from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // 1. Firebase config
 const firebaseConfig = {
@@ -12,8 +16,6 @@ const firebaseConfig = {
   appId: process.env.REACT_APP_APP_ID,
   measurementId: process.env.REACT_APP_MEASUREMENT_ID
 };
-
-
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -95,16 +97,21 @@ function injectStyles() {
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      max-height: 100%;
     }
 
     .chatbot-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+  flex: 1;
+  overflow-y: auto;
+  max-height: 300px; /* You can adjust this value */
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-color: #888 #f5f5f5;
+  scrollbar-width: thin;
+}
+
 
     .message {
       padding: 8px 12px;
@@ -224,22 +231,32 @@ function renderChatbot(container, data) {
   wrapper.className = "chatbot-container";
 
   const chatbotHTML = `
-    <div class="chatbot-preview ${data.chatbotSize || 'medium'}" style="background-color: ${data.backgroundColor || '#000'}">
+    <div class="chatbot-preview ${
+      data.chatbotSize || "medium"
+    }" style="background-color: ${data.backgroundColor || "#000"}">
       <div class="chatbot-header">
         <div class="chatbot-icon">
-          ${data.logoUrl ? `<img src="${data.logoUrl}" alt="Bot" />` : `<span>🤖</span>`}
+          ${
+            data.logoUrl
+              ? `<img src="${data.logoUrl}" alt="Bot" />`
+              : `<span>🤖</span>`
+          }
         </div>
-        <div class="chatbot-title">${data.botName || 'Your Bot'}</div>
+        <div class="chatbot-title">${data.botName || "Your Bot"}</div>
         <button class="chatbot-close-btn">×</button>
       </div>
 
       <div class="chatbot-body">
         <div class="chatbot-messages">
-          <div class="message bot">${data.initialGreeting || 'Hello! How can I assist you today?'}</div>
+          <div class="message bot">${
+            data.initialGreeting || "Hello! How can I assist you today?"
+          }</div>
         </div>
 
         <div class="chatbot-questions">
-          ${data.initialQuestions?.map(q => `<div class="chatbot-question">${q}</div>`).join("")}
+          ${data.initialQuestions
+            ?.map((q) => `<div class="chatbot-question">${q}</div>`)
+            .join("")}
         </div>
 
         <form class="chatbot-input">
@@ -250,7 +267,7 @@ function renderChatbot(container, data) {
     </div>
 
     <div class="chatbot-toggle-button hidden">
-      <img src="${data.logoUrl || '🤖'}" alt="Bot" />
+      <img src="${data.logoUrl || "🤖"}" alt="Bot" />
     </div>
   `;
 
@@ -275,7 +292,7 @@ function renderChatbot(container, data) {
   const form = wrapper.querySelector(".chatbot-input");
   const questions = wrapper.querySelectorAll(".chatbot-question");
 
-  form.addEventListener("submit", e => {
+  form.addEventListener("submit", (e) => {
     e.preventDefault();
     const text = inputEl.value.trim();
     if (text) {
@@ -283,11 +300,11 @@ function renderChatbot(container, data) {
     }
   });
 
-  questions.forEach(q => {
+  questions.forEach((q) => {
     q.addEventListener("click", () => {
       inputEl.value = q.innerText;
       sendMessage(wrapper, data.chatbotId);
-      q.parentElement.style.display = 'none';
+      q.parentElement.style.display = "none";
     });
   });
 }
@@ -318,7 +335,7 @@ window.mountChatbot = async (containerId, { chatbotId }) => {
 
     const chatbotData = {
       ...snap.data(),
-      chatbotId
+      chatbotId,
     };
 
     renderChatbot(container, chatbotData);
@@ -339,33 +356,34 @@ async function askQuestion(query, chatbotId) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/json"
+        Accept: "application/json",
       },
-      mode: 'cors',
-      credentials: 'include',
+      mode: "cors",
+      credentials: "include",
       body: JSON.stringify({
         query: query.trim(),
-        userId: chatbotId
-      })
+        userId: chatbotId,
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      throw new Error(
+        errorData.error || `HTTP error! status: ${response.status}`
+      );
     }
 
     const data = await response.json();
 
-    if (typeof data === 'object') {
-      if (typeof data === 'string') return { response: data };
+    if (typeof data === "object") {
+      if (typeof data === "string") return { response: data };
       if (data.response) return { response: data.response };
       if (data.message) return { response: data.message };
       if (data.answer) return { response: data.answer };
       return { response: JSON.stringify(data, null, 2) };
     }
 
-    throw new Error('Invalid response format');
-
+    throw new Error("Invalid response format");
   } catch (error) {
     console.error("Error in askQuestion:", error);
     throw error;
@@ -397,8 +415,8 @@ const sendMessage = async (container, chatbotId) => {
 
   try {
     addMessage(container, {
-      type: 'user',
-      text: text
+      type: "user",
+      text: text,
     });
 
     inputEl.value = "";
@@ -412,15 +430,15 @@ const sendMessage = async (container, chatbotId) => {
     messagesContainer.removeChild(loadingEl);
 
     addMessage(container, {
-      type: 'bot',
+      type: "bot",
       text: data.response,
-      sources: data.sources
+      sources: data.sources,
     });
   } catch (error) {
     console.error("sendMessage error:", error);
     addMessage(container, {
-      type: 'error',
-      text: error.message || 'Something went wrong. Try again.'
+      type: "error",
+      text: error.message || "Something went wrong. Try again.",
     });
   }
 };
