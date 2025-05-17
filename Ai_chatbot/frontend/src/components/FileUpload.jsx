@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import "../css/components/FileUpload.css";
+import { useNavigate } from 'react-router-dom';
 
 const FileUpload = () => {
   const [file, setFile] = useState(null);
   const [userId, setUserId] = useState(null);
   const [message, setMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-
+  const navigate = useNavigate();
   useEffect(() => {
     const auth = getAuth();
     onAuthStateChanged(auth, (user) => {

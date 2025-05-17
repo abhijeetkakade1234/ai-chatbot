@@ -4,9 +4,12 @@ import json
 from flask_cors import CORS
 import os
 import shutil
+import redis
 from typing import List
-from langchain_community.embeddings.ollama import OllamaEmbeddings
-from langchain_community.embeddings import HuggingFaceEmbeddings
+import threading
+from flask import current_app
+# from langchain_community.embeddings.ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
@@ -28,12 +31,15 @@ import torch
 import whatsapp
 #from langchain_community.llms import Ollama
 from langchain_ollama import OllamaLLM
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
 from langchain_chroma import Chroma
-from twilio.rest import Client
 from langdetect import detect
 from transformers import pipeline
 from deep_translator import GoogleTranslator
+import torch
+from langchain_community.llms import HuggingFacePipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 
 
@@ -47,7 +53,10 @@ CORS(app, resources={
         "supports_credentials": True
     }
 })
-VERIFY_TOKEN ="EAAJgFkPEdowBOZBIQAXFSshAAZAHyRUT3h6CBPCPqZBo6AkZCEQKUs4A5oQbADGEhv1VWODSbVGZCCsKi1pvMSIS3O3T4aWOFpsXuZAjzjyHeZCOelr6NPGmAAo9nVt7QEjlT0xrGZCa4ssfgk1ZAQefXn5E4Fyu63Q4ersR9oYjD9KYhSNRwBkKcUtTyVCGQsE80SZAqMUuIUcdIrSoWUHJThG2mJReYak08njVLvTA1IBdAZD"
+VERIFY_TOKEN="EAATxr7I8OHIBOz4Lh9yJZCvH9jHlQrPryddSEq6tLM7ZAocVawDjGEgbiZAL7W1nSnd90qiFW4DfhigZB0tDFAvlsebTJbuguZAWaR8nuFCBlljzVYDxy1l4NeyKFqjCOVsrFpEsafe2iTmemUEMZCDZBtbXRNIoCbmL3qpL2ZB4SZAxe5ZAk3UobTgzFNw2aiHZAGdzMF8ZAAvsahRoKcVfhLUznoLRCe8B5rnMVDttHteRZAD2dPMJlbQZDZD"
+# VERIFY_TOKEN ="EAATxr7I8OHIBO9cK1FVtekH4Gfe7j1BZAX4mkiV6O5iqBpTn9FyjknG4gFB99RIEDP1NPm2edrhhjwYFnC3UTtIaTdZBBjZAMN8d3iCm04nlmb9QSzzDZBVQURD3Xim7W1bMH8h9yFfjjuZA72as3ZAqecbXAZArr4ITt1glb8nwqkpJcqyAJZAODO5CmpFX7bboSXFLJZAlWfS2riKAyn53XPAyWzJbgQiVZBv9B8NNZBbHaL9IRUZD"
+#VERIFY_TOKEN ="EAATxr7I8OHIBO9cK1FVtekH4Gfe7j1BZAX4mkiV6O5iqBpTn9FyjknG4gFB99RIEDP1NPm2edrhhjwYFnC3UTtIaTdZBBjZAMN8d3iCm04nlmb9QSzzDZBVQURD3Xim7W1bMH8h9yFfjjuZA72as3ZAqecbXAZArr4ITt1glb8nwqkpJcqyAJZAODO5CmpFX7bboSXFLJZAlWfS2riKAyn53XPAyWzJbgQiVZBv9B8NNZBbHaL9IRUZD"
+#VERIFY_TOKEN ="EAAJgFkPEdowBO2olX5RvjMsxsIYcw1xZAZAHFZBMsZCExC93LpZB4YEZA6r7X6jej2mmBtStZAoiqAxnFG1EPKI1gGUiz3g2RZAfi8sjcejzeTAAa9WFRXTLO4uKZC7r4dxZBZCKeypCHySBoi64AvDiythwsCiDKud6wZB3k7KwyyZBbgyaHJnWnqCxLiSm2vrgBJSJyKruqZCZArBs8oGWMiXWTYZBl6FntlUpaHPYJQUiTMUvRRZCDUCUZD"
 #VERIFY_TOKEN = "EAAJgFkPEdowBOZC1ZBZAnFZAj0dCsOj1DAZCjIxJ7ZAe3HwVb6KPIBvFBgZATj0vnRhrHXbm5d7wNWiZCbp8h5jwA9Kh1Nhcqu72uwbrhk3ivtS93g2zOzy9csYya1dNykydQHfZAA1NRCjggu8zjhHjJ1LcXwbFzTuYKYj6QnUrZA2hsZCt7hOT3kPU9lC2hEXl9ynTboB7Stz8Yn1u0ChSb5CdbhlGeOpno9weWFV9x2g260ZD"  # Replace with your actual token
 # TWILIO_ACCOUNT_SID = "AC537a0dba7867468ea0dfa9ee1eed9a62"
 # TWILIO_AUTH_TOKEN="614352836da9ca7c2ec5a7588a862c8d"
@@ -129,17 +138,39 @@ def translate_from_english(text, target_lang):
 
 
 def get_embedding_function():
-    return HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={'device': 'cpu'}
-    )
+   return HuggingFaceEmbeddings(
+       model_name="sentence-transformers/paraphrase-multilingual-MiniLM-l12-v2",
+       model_kwargs={'device':'cuda' if torch.cuda.is_available()else'cpu'}
+   )
+
 
 
 #Initialize Firebase Admin SDK with proper error handling
+# try:
+#     current_dir = os.path.dirname(os.path.abspath(__file__))
+#     cred_path = os.path.join(current_dir, "config", "whatsapp-chatbot-33551-firebase-adminsdk-fbsvc-ab7903f1b4.json")
+    
+#     cred = credentials.Certificate(cred_path)
+#     firebase_admin.initialize_app(cred)
+#     db = firestore.client()
+#     print("Firebase initialized successfully")
+# except FileNotFoundError:
+#     print("Error: Firebase credentials file not found")
+#     print(f"Expected path: {cred_path}")
+#     exit(1)
+# except Exception as e:
+#     print(f"Error initializing Firebase: {e}")
+#     exit(1)
+
 try:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     cred_path = os.path.join(current_dir, "config", "whatsapp-chatbot-33551-firebase-adminsdk-fbsvc-ab7903f1b4.json")
-    
+    print(f"Looking for Firebase credentials at: {cred_path}")
+
+    if not os.path.exists(cred_path):
+        print(f"Error: Firebase credentials file not found at {cred_path}")
+        exit(1)
+
     cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
     db = firestore.client()
@@ -173,11 +204,22 @@ except Exception as e:
 #         print(f"Error getting WhatsApp UID: {str(e)}")
 #         return None
 
+@app.route('/update_settings', methods=['POST'])
+def update_settings():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    # Extract the settings from the request
+    settings = data.get("settings")
+    
+
+
 def send_whatsapp_message(wa_id, message_text,PHONE_NUMBER_ID):
     print(wa_id)
-    # print(message_text)
-    # print(PHONE_NUMBER_ID)
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    print(message_text)
+    print(PHONE_NUMBER_ID)
+    url = f"https://graph.facebook.com/v19.0/612028228667788/messages"
     
     headers = {
         "Authorization": f"Bearer {VERIFY_TOKEN}",
@@ -186,7 +228,7 @@ def send_whatsapp_message(wa_id, message_text,PHONE_NUMBER_ID):
 
     payload = {
         "messaging_product": "whatsapp",
-        "to": wa_id,
+        "to":"+918550904008",
         "type": "text",
         "text": {
             "body": message_text
@@ -273,6 +315,7 @@ def push_user_info_database():
         # Use PyPDFLoader to load the PDF file
        
         result=process_file_with_ml(file_stream,user_id)
+        print(result)
 
         return jsonify({'message':'file processed successfully'}),200
     else:
@@ -283,6 +326,7 @@ def push_user_info_database():
 def process_file_with_ml(file_stream, user_id):
     # Generate a unique document ID for this document
     document_id = str(uuid4())
+    print(user_id)
 
     # Save the in-memory file (BytesIO) to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
@@ -326,7 +370,11 @@ def process_file_with_ml(file_stream, user_id):
         
         chunk_ids = [chunk.metadata["chunkId"] for chunk in chunks]
         db.add_documents(chunks, ids=chunk_ids)
-
+        print(f"Chunks stored in Chroma: {chunk_ids}")
+        print(f"Number of chunks created: {len(chunks)}")
+        for chunk in chunks:
+            print(f"Chunk content: {chunk.page_content[:100]}")  # Print first 100 characters
+            print(f"Chunk metadata: {chunk.metadata}")
         return {
             "userId": user_id,
             "documentId": document_id,
@@ -564,27 +612,200 @@ def process_file_with_ml(file_stream, user_id):
 #             'details': str(e)
 #         }), 500
 
-@app.route('/Whatsapp_asked', methods=['GET', 'POST'])
-def question_asked_whatsapp():
-    print("inside whatsapp")
-    if request.method == 'GET':
-        # WhatsApp verification request     
-        if request.args.get('hub.verify_token') == VERIFY_TOKEN:
-            return request.args.get('hub.challenge')
-        else:
-            return "Invalid verification token", 403
-    elif request.method == 'POST':
-        try:
-            request_data = request.data.decode("utf-8")
-            data = json.loads(request_data)
+# @app.route('/Whatsapp_asked', methods=['GET', 'POST'])
+# def question_asked_whatsapp():
+#     flag=False
+#     print("inside whatsapp")
+#     if request.method == 'GET':
+#         # WhatsApp verification request     
+#         if request.args.get('hub.verify_token') == VERIFY_TOKEN:
+#             return request.args.get('hub.challenge')
+#         else:
+#             return "Invalid verification token", 403
+#     elif request.method == 'POST':
+#         try:
+#             request_data = request.data.decode("utf-8")
+#             data = json.loads(request_data)
+#             user_id2 = data['entry'][0]['changes'][0]['value']['contacts'][0]['wa_id']
+#             user_id1 = f'whatsapp:+{user_id2}'
+#             user_id = get_whatsapp_uid(user_id1)
+#             print(user_id1)
+#             print("Incoming JSON:", request_data) 
+#             query_text = data['entry'][0]['changes'][0]['value']['messages'][0]['text']['body']
+#             is_whatsapp = True
+#             print("Query text:", query_text)
+#             if not query_text:
+#                 return jsonify({'error': 'No query provided'}), 400
+#             if not user_id:
+#                 return jsonify({'error': 'No userId provided'}), 400
+
+#             detected_lang = detect(query_text)
+#             if detected_lang != 'en':
+#                 print(f"Detected language: {detected_lang}")
+#                 query_text = GoogleTranslator(source=detected_lang, target='en').translate(query_text)
+#                 print("Translated query text:", query_text)
+#             settings = chromadb.Settings(persist_directory=CHROMA_PATH, is_persistent=True)
+#             client = chromadb.Client(settings)
+
+#             db = Chroma(
+#                 client=client,
+#                 collection_name=f"user_{user_id}",
+#                 embedding_function=get_embedding_function()
+#             )
+
+#             results = db.similarity_search_with_score(query=query_text, k=5)
+#             print("Results:", results)
+#             # if not results:
+#             #     print("printing results")
+#             #     return jsonify({'error': 'No relevant documents found'}), 404
+
+#             context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
+#             prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+#             prompt = prompt_template.format(context=context_text, question=query_text)
+
+#             llm = get_llm()
+#             try:
+#                 print("outside of the llm")
+#                 response = llm.invoke(prompt)
+#                 response_text = str(response).strip()
+#                 print(response_text)
+#             except Exception as llm_error:
+#                 print(f"LLM Error: {llm_error}")
+#                 response_text = "I apologize, but I encountered an error processing your question."
+
+#             if detected_lang != 'en':
+#                 response_text = GoogleTranslator(source='en', target=detected_lang).translate(response_text)
+
+#             phone_number_id = data['entry'][0]['changes'][0]['value']['metadata']['phone_number_id']
+#             send_whatsapp_message(user_id2, response_text, phone_number_id)
+
+#             return jsonify({'message': response_text}), 200
+
+#         except Exception as e:
+#             print(f"Error in question_asked_whatsapp: {str(e)}")
+#             return jsonify({
+#                 'error': 'An error occurred processing your request',
+#                 'details': str(e)
+#             }), 500
+
+# def process_whatsapp_message(data):
+#     # Your existing logic for processing the WhatsApp message
+#     try:
+#         with app.app_context():
+#             user_id2 = data['entry'][0]['changes'][0]['value']['contacts'][0]['wa_id']
+#             user_id1 = f'whatsapp:+{user_id2}'
+#             user_id = get_whatsapp_uid(user_id1)
+#             print(user_id1)
+#             query_text = data['entry'][0]['changes'][0]['value']['messages'][0]['text']['body']
+#             is_whatsapp = True
+#             print("Query text:", query_text)
+#             if not query_text:
+#                 return jsonify({'error': 'No query provided'}), 400
+#             if not user_id:
+#                 return jsonify({'error': 'No userId provided'}), 400
+
+#             detected_lang = detect(query_text)
+#             if detected_lang != 'en':
+#                 print(f"Detected language: {detected_lang}")
+#                 query_text = GoogleTranslator(source=detected_lang, target='en').translate(query_text)
+#             settings = chromadb.Settings(persist_directory=CHROMA_PATH, is_persistent=True)
+#             client = chromadb.Client(settings)
+
+#             db = Chroma(
+#                 client=client,
+#                 collection_name=f"user_{user_id}",
+#                 embedding_function=get_embedding_function()
+#             )
+
+#             results = db.similarity_search_with_score(query=query_text, k=2)
+#             print("Results:", results)
+#             # if not results:
+#             #     print("printing results")
+#             #     return jsonify({'error': 'No relevant documents found'}), 404
+
+#             context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
+#             prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+#             prompt = prompt_template.format(context=context_text, question=query_text)
+
+#             llm = get_llm()
+#             try:
+#                 print("outside of the llm")
+#                 response = llm.invoke(prompt)
+#                 response_text = str(response).strip()
+#                 print(response_text)
+#             except Exception as llm_error:
+#                 print(f"LLM Error: {llm_error}")
+#                 response_text = "I apologize, but I encountered an error processing your question."
+
+#             if detected_lang != 'en':
+#                 response_text = GoogleTranslator(source='en', target=detected_lang).translate(response_text)
+
+#             phone_number_id = data['entry'][0]['changes'][0]['value']['metadata']['phone_number_id']
+#             send_whatsapp_message(user_id2, response_text, phone_number_id)
+
+#             return jsonify({'message': response_text}), 200
+
+#     except Exception as e:
+#         with app.app_context():
+#             print(f"Error in question_asked_whatsapp: {str(e)}")
+#             return jsonify({
+#                 'error': 'An error occurred processing your request',
+#                 'details': str(e)
+#             }), 500
+
+# @app.route('/Whatsapp_asked', methods=['POST','GET'])
+# def question_asked_whatsapp():
+#     if request.method == 'GET':
+#       # WhatsApp verification request     
+#          if request.args.get('hub.verify_token') == VERIFY_TOKEN:
+#              return request.args.get('hub.challenge')
+#          else:
+#              return "Invalid verification token", 403
+#     elif request.method == 'POST':
+#         try:
+#             request_data = request.data.decode("utf-8")
+#             data = json.loads(request_data)
+
+#             # Acknowledge receipt immediately
+#             threading.Thread(target=process_whatsapp_message, args=(data,)).start()
+#             return jsonify({'status': 'Message received'}), 200
+
+#         except Exception as e:
+#             with app.app_context():
+#                 print(f"Error in question_asked_whatsapp: {str(e)}")
+#                 return jsonify({
+#                     'error': 'An error occurred processing your request',
+#                     'details': str(e)
+#                 }), 500
+
+
+redis_client = redis.Redis(host='localhost', port=6379, db=0)
+
+def is_message_processed(message_id):
+    return redis_client.exists(message_id)
+
+def mark_message_as_processed(message_id):
+    redis_client.set(message_id, 'processed', ex=60 * 60)  # Expire after 1 hour
+
+def process_whatsapp_message(data):
+    try:
+        with app.app_context():
+            message_id = data['entry'][0]['changes'][0]['value']['messages'][0]['id']
+
+            if is_message_processed(message_id):
+                print(f"Message {message_id} already processed. Skipping.")
+                return
+
+            mark_message_as_processed(message_id)
+
+            # Your existing logic for processing the WhatsApp message
             user_id2 = data['entry'][0]['changes'][0]['value']['contacts'][0]['wa_id']
             user_id1 = f'whatsapp:+{user_id2}'
             user_id = get_whatsapp_uid(user_id1)
             print(user_id1)
-            print("Incoming JSON:", request_data) 
             query_text = data['entry'][0]['changes'][0]['value']['messages'][0]['text']['body']
             is_whatsapp = True
-
+            print("Query text:", query_text)
             if not query_text:
                 return jsonify({'error': 'No query provided'}), 400
             if not user_id:
@@ -594,7 +815,7 @@ def question_asked_whatsapp():
             if detected_lang != 'en':
                 print(f"Detected language: {detected_lang}")
                 query_text = GoogleTranslator(source=detected_lang, target='en').translate(query_text)
-
+                print("Translated query text:", query_text)
             settings = chromadb.Settings(persist_directory=CHROMA_PATH, is_persistent=True)
             client = chromadb.Client(settings)
 
@@ -604,10 +825,11 @@ def question_asked_whatsapp():
                 embedding_function=get_embedding_function()
             )
 
-            results = db.similarity_search_with_score(query=query_text, k=5, filter={"userId": user_id})
-
-            if not results:
-                return jsonify({'error': 'No relevant documents found'}), 404
+            results = db.similarity_search_with_score(query=query_text, k=5)
+            print("Results:", results)
+            # if not results:
+            #     print("printing results")
+            #     return jsonify({'error': 'No relevant documents found'}), 404
 
             context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
             prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
@@ -631,13 +853,38 @@ def question_asked_whatsapp():
 
             return jsonify({'message': response_text}), 200
 
-        except Exception as e:
+    except Exception as e:
+        with app.app_context():
             print(f"Error in question_asked_whatsapp: {str(e)}")
             return jsonify({
                 'error': 'An error occurred processing your request',
                 'details': str(e)
             }), 500
 
+@app.route('/Whatsapp_asked', methods=['POST','GET'])
+def question_asked_whatsapp():
+    if request.method == 'GET':
+         # WhatsApp verification request     
+         if request.args.get('hub.verify_token') == VERIFY_TOKEN:
+             return request.args.get('hub.challenge')
+         else:
+             return "Invalid verification token", 403
+    if request.method == 'POST':
+        try:
+            request_data = request.data.decode("utf-8")
+            data = json.loads(request_data)
+
+            # Acknowledge receipt immediately
+            threading.Thread(target=process_whatsapp_message, args=(data,)).start()
+            return jsonify({'status': 'Message received'}), 200
+
+        except Exception as e:
+            print(f"Error in question_asked_whatsapp: {str(e)}")
+            return jsonify({
+                'error': 'An error occurred processing your request',
+                'details': str(e)
+            }), 500
+            
 
 @app.route('/question_asked', methods=['POST'])
 def question_asked():
@@ -645,6 +892,7 @@ def question_asked():
         data = request.get_json()
         query_text = data.get('query')
         user_id = data.get('userId')
+        print(user_id)
         
         if not query_text:
             return jsonify({'error': 'No query provided'}), 400
@@ -667,8 +915,8 @@ def question_asked():
 
         results = db.similarity_search_with_score(query=query_text, k=5, filter={"userId": user_id})
 
-        if not results:
-            return jsonify({'error': 'No relevant documents found'}), 404
+        # if not results:
+        #     return jsonify({'error': 'No relevant documents found'}), 404
 
         context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
         prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
@@ -738,6 +986,31 @@ def get_llm():
         format="",  # Ensure text format output
         callback_manager=None  # Disable callbacks to prevent _type issues
     )
+
+# def get_llm():
+#     print("in llm")
+#     # Determine the device to use (CPU or GPU)
+#     device = "cuda" if torch.cuda.is_available() else "cpu"
+#     print(f"Using device: {device}")
+
+#     # Load the model and tokenizer
+#     model_name = "mistralai/Mistral-7B-Instruct-v0.1"
+#     model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+#     tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+#     # Create the pipeline
+#     pipe = pipeline(
+#         "text-generation",
+#         model=model,
+#         tokenizer=tokenizer,
+#         max_length=256,
+#         temperature=0.7,
+#         top_p=0.95,
+#         repetition_penalty=1.15
+#     )
+
+#     llm = HuggingFacePipeline(pipeline=pipe)
+#     return llm
 
 
 if __name__ == '__main__':

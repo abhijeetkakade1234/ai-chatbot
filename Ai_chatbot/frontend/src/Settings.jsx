@@ -80,6 +80,8 @@ function Settings() {
 
     try {
       await setDoc(doc(db, "chatbotSettings", user.uid), newSettings, { merge: true });
+      // Call the API here after successful save
+      callSettingsAPI(newSettings);
     } catch (error) {
       console.error("Error saving settings:", error);
       alert("Failed to save settings. Please try again.");
@@ -90,6 +92,27 @@ function Settings() {
     const newSettings = { ...settings, [field]: value };
     setSettings(newSettings);
     saveSettings(newSettings);
+  };
+
+  // Function to call the API
+  const callSettingsAPI = async (settingsData) => {
+    try {
+      const response = await fetch("http://localhost:5000/update_settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(settingsData),
+      });
+
+      if (!response.ok) {
+        console.error("API call failed:", response.status, response.statusText);
+      } else {
+        console.log("API call successful");
+      }
+    } catch (error) {
+      console.error("Error calling API:", error);
+    }
   };
 
   const renderAnswerFormatTab = () => (
