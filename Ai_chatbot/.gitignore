@@ -10,10 +10,11 @@ frontend/dist/
 *.log
 
 # Environment files
-.env
+*.env
 frontend/.env
 backend/.env 
 .venv
+firebasekeys.env
 
 # System files
 .DS_Store

@@ -62,7 +62,7 @@ function ChatbotCustomizationPanel({
       <button className="save-btn" onClick={onSave}>Save</button>
 
       {/* File Upload pdf*/}
-      {/* <FileUpload /> */}
+      <FileUpload />
 
       {/* 🆕 Embed Code */}
       {chatbotId && (

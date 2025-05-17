@@ -1,13 +1,16 @@
-// components/Sidebar.jsx
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import '../css/components/Sidebar.css';
 import Settings from '../Settings';
 
+// Icons from react-icons
+import { FaHome, FaFileAlt, FaComments, FaCog, FaGlobe, FaWhatsapp, FaLifeRing, FaSignOutAlt } from 'react-icons/fa';
+
 function Sidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -18,26 +21,41 @@ function Sidebar() {
     }
   };
 
+  const isActive = (path) => location.pathname === path;
+
   return (
     <aside className="sidebar">
       <div className="logo-container">
-        <span className="logo-icon">⌂</span>
+        <FaHome className="logo-icon" />
         <span className="logo-text">{Settings.botName || 'Chatbot'}</span>
         <button className="collapse-btn">▼</button>
       </div>
       <nav className="nav-menu">
         <ul>
-          <li onClick={() => navigate('/knowledgebase')}><span className="nav-icon">📄</span> Knowledge base</li>
-          <li className="with-submenu"><span className="nav-icon">💬</span> Chats</li>
-          <li onClick={() => navigate('/settings')}><span className="nav-icon">⚙️</span> Settings</li>
-          <li onClick={() => navigate('/dashboard')}><span className="nav-icon">🌐</span> Website Chatbot</li>
-          <li onClick={() => navigate('/whatsapp')}><span className="nav-icon">📲</span> WhatsApp Chatbot</li>
+          <li className={isActive('/knowledgebase') ? 'active' : ''} onClick={() => navigate('/knowledgebase')}>
+            <FaFileAlt className="nav-icon" /> Knowledge base
+          </li>
+          <li className="with-submenu">
+            <FaComments className="nav-icon" /> Chats
+          </li>
+          <li className={isActive('/settings') ? 'active' : ''} onClick={() => navigate('/settings')}>
+            <FaCog className="nav-icon" /> Settings
+          </li>
+          <li className={isActive('/dashboard') ? 'active' : ''} onClick={() => navigate('/dashboard')}>
+            <FaGlobe className="nav-icon" /> Website Chatbot
+          </li>
+          <li className={isActive('/whatsapp') ? 'active' : ''} onClick={() => navigate('/whatsapp')}>
+            <FaWhatsapp className="nav-icon" /> WhatsApp Chatbot
+          </li>
         </ul>
       </nav>
       <div className="sidebar-footer">
-        {/* <div className="test-chatbot"><span className="nav-icon">🤖</span> Test Chatbot</div> */}
-        <div className="support-link"><span className="nav-icon">🛟</span> Help and support</div>
-        <button className="logout-link" onClick={handleLogout}><span className="nav-icon">↪</span> Logout</button>
+        <div className="support-link">
+          <FaLifeRing className="nav-icon" /> Help and support
+        </div>
+        <button className="logout-link" onClick={handleLogout}>
+          <FaSignOutAlt className="nav-icon" /> Logout
+        </button>
       </div>
     </aside>
   );

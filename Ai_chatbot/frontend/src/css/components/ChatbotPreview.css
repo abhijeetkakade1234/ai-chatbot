@@ -40,6 +40,7 @@
 }
   
 .chatbot-header {
+  position: relative; /* Add this to make the close button position correctly */
   display: flex;
   align-items: center;
   gap: 10px;
@@ -47,7 +48,7 @@
   font-weight: bold;
   background-color: rgba(0,0,0,0.3);
 }
-  
+
 .chatbot-icon img {
   width: 30px;
   height: 30px;
@@ -203,4 +204,15 @@
 .chatbot-preview.small .chatbot-input input {
   font-size: 0.9em;
   padding: 6px;
+}
+.chatbot-close-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: #fff; /* or black depending on your theme */
 }

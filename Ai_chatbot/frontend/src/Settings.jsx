@@ -4,6 +4,9 @@ import { db, auth } from "./firebase";
 import Sidebar from "./components/Sidebar";
 import "./css/Settings.css";
 
+// React icons
+import { FaCog, FaRobot, FaBullseye, FaSave, FaTrashAlt, FaPlus, FaPenFancy } from "react-icons/fa";
+
 function Settings() {
   const [activeTab, setActiveTab] = useState("answerFormat");
   const [settings, setSettings] = useState({
@@ -18,7 +21,6 @@ function Settings() {
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load settings from Firebase on component mount
   useEffect(() => {
     const loadSettings = async () => {
       const user = auth.currentUser;
@@ -60,12 +62,10 @@ function Settings() {
 
     setIsSaving(true);
     try {
-      const docRef = doc(db, "chatbotSettings", user.uid);
       await setDoc(doc(db, "chatbotSettings", user.uid), {
         ...settings,
-        updatedAt: new Date().toISOString()
-      }, { merge: true }); // ✅ Prevent overwrite      
-      // alert("Settings saved successfully!");
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
     } catch (error) {
       console.error("Error saving settings:", error);
       alert("Failed to save settings. Please try again.");
@@ -74,22 +74,18 @@ function Settings() {
     }
   };
 
-  // Save settings to Firebase
   const saveSettings = async (newSettings) => {
     const user = auth.currentUser;
     if (!user) return;
 
     try {
-      const docRef = doc(db, "chatbotSettings", user.uid);
-      await setDoc(doc(db, "chatbotSettings", user.uid), newSettings, { merge: true }); // ✅ Merge fix
-      // alert("Settings saved successfully!");
+      await setDoc(doc(db, "chatbotSettings", user.uid), newSettings, { merge: true });
     } catch (error) {
       console.error("Error saving settings:", error);
       alert("Failed to save settings. Please try again.");
     }
   };
 
-  // Update handlers with Firebase save
   const handleInputChange = (field, value) => {
     const newSettings = { ...settings, [field]: value };
     setSettings(newSettings);
@@ -98,7 +94,7 @@ function Settings() {
 
   const renderAnswerFormatTab = () => (
     <div className="settings-section">
-      <h3>🎯 Answer Format</h3>
+      <h3><FaBullseye /> Answer Format</h3>
       <div className="option-group">
         <h4>• Length</h4>
         <select
@@ -141,7 +137,7 @@ function Settings() {
 
   const renderBotDefaultsTab = () => (
     <div className="settings-section">
-      <h3>🤖 Bot Defaults</h3>
+      <h3><FaRobot /> Bot Defaults</h3>
       <div className="input-group">
         <label>• AI Agent Name</label>
         <input
@@ -197,7 +193,7 @@ function Settings() {
 
     return (
       <div className="settings-section">
-        <h3>📝 Custom Instructions</h3>
+        <h3><FaPenFancy /> Custom Instructions</h3>
         <div className="instructions-list">
           {(settings.customInstructions || []).map((instruction, index) => (
             <div key={index} className="instruction-item">
@@ -218,7 +214,7 @@ function Settings() {
                   updateInstructions(newInstructions);
                 }}
               >
-                ❌
+                <FaTrashAlt />
               </button>
             </div>
           ))}
@@ -231,7 +227,7 @@ function Settings() {
               updateInstructions(newInstructions);
             }}
           >
-            ➕ Add Instruction
+            <FaPlus /> Add Instruction
           </button>
         </div>
       </div>
@@ -243,13 +239,13 @@ function Settings() {
       <Sidebar />
       <main className="settings-content">
         <div className="settings-header">
-          <h2>⚙️ Settings</h2>
-          <button 
+          <h2><FaCog /> Settings</h2>
+          <button
             className="save-button"
             onClick={handleSave}
             disabled={isSaving}
           >
-            {isSaving ? 'Saving...' : '💾 Save Settings'}
+            {isSaving ? "Saving..." : <><FaSave style={{ marginRight: "6px" }} /> Save Settings</>}
           </button>
         </div>
         <div className="tabs">
