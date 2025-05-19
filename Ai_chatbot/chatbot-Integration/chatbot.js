@@ -3,15 +3,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
 // 1. Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyB-0TL358O140wB7PeuA_NIEBvQaoFHM9A",
-  authDomain: "whatsapp-chatbot-33551.firebaseapp.com",
-  projectId: "whatsapp-chatbot-33551",
-  storageBucket: "whatsapp-chatbot-33551.firebasestorage.app",
-  messagingSenderId: "340832961461",
-  appId: "1:340832961461:web:27141c87178c87cdff8ffc",
-  measurementId: "G-53HFLMV94E"
-};
 
 
 

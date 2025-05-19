@@ -40,6 +40,7 @@ from deep_translator import GoogleTranslator
 import torch
 from langchain_community.llms import HuggingFacePipeline
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+import datetime
 
 
 
@@ -53,7 +54,7 @@ CORS(app, resources={
         "supports_credentials": True
     }
 })
-VERIFY_TOKEN="EAATxr7I8OHIBOz4Lh9yJZCvH9jHlQrPryddSEq6tLM7ZAocVawDjGEgbiZAL7W1nSnd90qiFW4DfhigZB0tDFAvlsebTJbuguZAWaR8nuFCBlljzVYDxy1l4NeyKFqjCOVsrFpEsafe2iTmemUEMZCDZBtbXRNIoCbmL3qpL2ZB4SZAxe5ZAk3UobTgzFNw2aiHZAGdzMF8ZAAvsahRoKcVfhLUznoLRCe8B5rnMVDttHteRZAD2dPMJlbQZDZD"
+VERIFY_TOKEN="EAATxr7I8OHIBOzxNOZAprftzeYxFOXCbfjWyI8ygyzFcXBEcO2lVv8YNDi3JfrcR2ZBMo7LyMWMPCvg0qmttgvG3hvVQ8oqFZBxfy3j5SQI4BQAy1bC7xt05vlihZBQZBgvdrV4V0Dyh3ivKchZB05di8G5RKTZADMmJSozgBoLOXhoBk2tfsyoClrnvJKDHxfNICWtXeeyZBXpyb26ZBMJo3FBnAp3NPq2CJsHZAZCd5kRndGXeXEZD"
 # VERIFY_TOKEN ="EAATxr7I8OHIBO9cK1FVtekH4Gfe7j1BZAX4mkiV6O5iqBpTn9FyjknG4gFB99RIEDP1NPm2edrhhjwYFnC3UTtIaTdZBBjZAMN8d3iCm04nlmb9QSzzDZBVQURD3Xim7W1bMH8h9yFfjjuZA72as3ZAqecbXAZArr4ITt1glb8nwqkpJcqyAJZAODO5CmpFX7bboSXFLJZAlWfS2riKAyn53XPAyWzJbgQiVZBv9B8NNZBbHaL9IRUZD"
 #VERIFY_TOKEN ="EAATxr7I8OHIBO9cK1FVtekH4Gfe7j1BZAX4mkiV6O5iqBpTn9FyjknG4gFB99RIEDP1NPm2edrhhjwYFnC3UTtIaTdZBBjZAMN8d3iCm04nlmb9QSzzDZBVQURD3Xim7W1bMH8h9yFfjjuZA72as3ZAqecbXAZArr4ITt1glb8nwqkpJcqyAJZAODO5CmpFX7bboSXFLJZAlWfS2riKAyn53XPAyWzJbgQiVZBv9B8NNZBbHaL9IRUZD"
 #VERIFY_TOKEN ="EAAJgFkPEdowBO2olX5RvjMsxsIYcw1xZAZAHFZBMsZCExC93LpZB4YEZA6r7X6jej2mmBtStZAoiqAxnFG1EPKI1gGUiz3g2RZAfi8sjcejzeTAAa9WFRXTLO4uKZC7r4dxZBZCKeypCHySBoi64AvDiythwsCiDKud6wZB3k7KwyyZBbgyaHJnWnqCxLiSm2vrgBJSJyKruqZCZArBs8oGWMiXWTYZBl6FntlUpaHPYJQUiTMUvRRZCDUCUZD"
@@ -203,17 +204,48 @@ except Exception as e:
 #     except Exception as e:
 #         print(f"Error getting WhatsApp UID: {str(e)}")
 #         return None
+user_settings = {}
 
 @app.route('/update_settings', methods=['POST'])
 def update_settings():
     data = request.get_json()
     if not data:
-        return jsonify({"error": "No data provided"}), 400
+        return jsonify({'error': 'No data provided'}), 400
 
-    # Extract the settings from the request
-    settings = data.get("settings")
-    
+    # Save settings in a global variable (keyed by userId if needed)
+    # For now, just store the latest settings
+    global user_settings
+    user_settings = {
+        "answerLength": data.get("answerLength", "medium"),
+        "tone": data.get("tone", "friendly"),
+        "gender": data.get("gender", "neutral"),
+        "botName": data.get("botName", ""),
+        "companyInfo": data.get("companyInfo", ""),
+        "fallbackMessage": data.get("fallbackMessage", ""),
+        "forbiddenWords": data.get("forbiddenWords", ""),
+        "customInstructions": data.get("customInstructions", []),
+    }
+    print("Settings updated:", user_settings)
+    return jsonify({'message': 'Settings updated successfully'}), 200
 
+# Example: Use settings to set the prompt
+def get_dynamic_prompt(context, question):
+    # Use the global user_settings variable
+    prompt = f"""
+You are an AI assistant named {user_settings.get('botName', 'Assistant')}.
+Use ONLY the context provided below to answer the question.
+
+If the answer is not in the context, say "{user_settings.get('fallbackMessage', "I don't have enough information.")}"
+
+Context:
+{context}
+
+---
+
+Question: {question}
+Answer (Length: {user_settings.get('answerLength', 'medium')}, Tone: {user_settings.get('tone', 'friendly')}, Gender: {user_settings.get('gender', 'neutral')}):
+"""
+    return prompt
 
 def send_whatsapp_message(wa_id, message_text,PHONE_NUMBER_ID):
     print(wa_id)
@@ -789,8 +821,14 @@ def mark_message_as_processed(message_id):
 
 def process_whatsapp_message(data):
     try:
+        value = data['entry'][0]['changes'][0]['value']
+        # Only process if 'messages' key exists
+        if 'messages' not in value:
+            print("Ignoring non-message event:", value.keys())
+            return
+
         with app.app_context():
-            message_id = data['entry'][0]['changes'][0]['value']['messages'][0]['id']
+            message_id = value['messages'][0]['id']
 
             if is_message_processed(message_id):
                 print(f"Message {message_id} already processed. Skipping.")
@@ -799,17 +837,19 @@ def process_whatsapp_message(data):
             mark_message_as_processed(message_id)
 
             # Your existing logic for processing the WhatsApp message
-            user_id2 = data['entry'][0]['changes'][0]['value']['contacts'][0]['wa_id']
+            user_id2 = value['contacts'][0]['wa_id']
             user_id1 = f'whatsapp:+{user_id2}'
             user_id = get_whatsapp_uid(user_id1)
             print(user_id1)
-            query_text = data['entry'][0]['changes'][0]['value']['messages'][0]['text']['body']
+            query_text = value['messages'][0]['text']['body']
             is_whatsapp = True
             print("Query text:", query_text)
             if not query_text:
-                return jsonify({'error': 'No query provided'}), 400
+                print("No query provided")
+                return
             if not user_id:
-                return jsonify({'error': 'No userId provided'}), 400
+                print("No userId provided")
+                return
 
             detected_lang = detect(query_text)
             if detected_lang != 'en':
@@ -827,42 +867,36 @@ def process_whatsapp_message(data):
 
             results = db.similarity_search_with_score(query=query_text, k=5)
             print("Results:", results)
-            # if not results:
-            #     print("printing results")
-            #     return jsonify({'error': 'No relevant documents found'}), 404
-
-            context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
-            prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-            prompt = prompt_template.format(context=context_text, question=query_text)
-
-            llm = get_llm()
-            try:
-                print("outside of the llm")
-                response = llm.invoke(prompt)
-                response_text = str(response).strip()
-                print(response_text)
-            except Exception as llm_error:
-                print(f"LLM Error: {llm_error}")
-                response_text = "I apologize, but I encountered an error processing your question."
+            if not results:
+                response_text="Please upload the document to start the converstion"
+            else:
+                context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
+                prompt = get_dynamic_prompt(context_text, query_text)
+                llm = get_llm()
+                try:
+                    print("outside of the llm")
+                    response = llm.invoke(prompt)
+                    response_text = str(response).strip()
+                    print(response_text)
+                except Exception as llm_error:
+                    print(f"LLM Error: {llm_error}")
+                    response_text = "I apologize, but I encountered an error processing your question."
 
             if detected_lang != 'en':
                 response_text = GoogleTranslator(source='en', target=detected_lang).translate(response_text)
 
-            phone_number_id = data['entry'][0]['changes'][0]['value']['metadata']['phone_number_id']
+            phone_number_id = value['metadata']['phone_number_id']
             send_whatsapp_message(user_id2, response_text, phone_number_id)
 
-            return jsonify({'message': response_text}), 200
-
     except Exception as e:
-        with app.app_context():
-            print(f"Error in question_asked_whatsapp: {str(e)}")
-            return jsonify({
-                'error': 'An error occurred processing your request',
-                'details': str(e)
-            }), 500
+        print(f"Error in process_whatsapp_message: {str(e)}")
+
 
 @app.route('/Whatsapp_asked', methods=['POST','GET'])
 def question_asked_whatsapp():
+    print("Webhook called at:", datetime.datetime.now())
+    print("Headers:", dict(request.headers))
+    print("Raw data:", request.data)
     if request.method == 'GET':
          # WhatsApp verification request     
          if request.args.get('hub.verify_token') == VERIFY_TOKEN:
@@ -915,25 +949,23 @@ def question_asked():
 
         results = db.similarity_search_with_score(query=query_text, k=5, filter={"userId": user_id})
 
-        # if not results:
-        #     return jsonify({'error': 'No relevant documents found'}), 404
-
-        context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
-        prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-        prompt = prompt_template.format(context=context_text, question=query_text)
-
-        llm = get_llm()
-        try:
-            print("outside of the llm")
-            response = llm.invoke(prompt)
-            response_text = str(response).strip()
-            print(response_text)
-        except Exception as llm_error:
-            print(f"LLM Error: {llm_error}")
-            response_text = "I apologize, but I encountered an error processing your question."
+        if not results:
+            response_text="Please upload the document to start the converstion"
+        else:
+            context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
+            prompt = get_dynamic_prompt(context_text, query_text)
+            llm = get_llm()
+            try:
+                print("outside of the llm")
+                response = llm.invoke(prompt)
+                response_text = str(response).strip()
+                print(response_text)
+            except Exception as llm_error:
+                print(f"LLM Error: {llm_error}")
+                response_text = "I apologize, but I encountered an error processing your question."
 
         if detected_lang != 'en':
-            response_text = GoogleTranslator(source='en', target=detected_lang).translate(response_text)
+                response_text = GoogleTranslator(source='en', target=detected_lang).translate(response_text)
 
         return jsonify({'response': response_text}), 200
 
@@ -1011,7 +1043,8 @@ def get_llm():
 
 #     llm = HuggingFacePipeline(pipeline=pipe)
 #     return llm
-
+if os.path.exists(CHROMA_PATH):
+            shutil.rmtree(CHROMA_PATH)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
